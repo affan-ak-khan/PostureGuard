@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Database
+data/*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution
+dist/
+*.spec
+
+# Local vendored libraries (install via pip instead)
+lib/

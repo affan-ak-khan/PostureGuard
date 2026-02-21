@@ -1,0 +1,361 @@
+﻿"""
+dashboard.py — Statistics and charts window for PostureGuard.
+"""
+
+import logging
+from datetime import datetime, timedelta
+
+import numpy as np
+from PyQt5.QtCore    import Qt, QTimer
+from PyQt5.QtGui     import QFont, QColor
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QComboBox, QGroupBox,
+    QGridLayout, QFrame, QFileDialog, QMessageBox, QSizePolicy,
+)
+
+try:
+    import matplotlib
+    matplotlib.use("Qt5Agg")
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib.patches as mpatches
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
+
+from src.ui.styles import get_stylesheet, get_status_colour
+
+logger = logging.getLogger(__name__)
+
+# ── colour palette (matches main_window) ──────────────────────────────────
+BG   = "#11111b"
+BG2  = "#1e1e2e"
+BG3  = "#181825"
+BD   = "#2a2a3d"
+BD2  = "#313244"
+ACC  = "#89b4fa"
+ACC2 = "#74c7ec"
+GRN  = "#a6e3a1"
+YEL  = "#f9e2af"
+ORG  = "#fab387"
+RED  = "#f38ba8"
+MUT  = "#6c7086"
+TXT  = "#cdd6f4"
+
+
+def _mpl_axes_style(ax, bg=BG3):
+    ax.set_facecolor(bg)
+    for sp in ax.spines.values():
+        sp.set_color(BD2)
+    ax.tick_params(colors=MUT, labelsize=9)
+    ax.yaxis.label.set_color(MUT)
+    ax.xaxis.label.set_color(MUT)
+
+
+class StatCard(QFrame):
+    """Metric card with coloured left border."""
+    def __init__(self, title: str, value: str = "--",
+                 colour: str = ACC, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(80)
+        self.setStyleSheet(
+            f"QFrame {{ background:{BG2}; border:1px solid {BD};"
+            f" border-left:4px solid {colour}; border-radius:10px; }}"
+        )
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 6, 14, 6)
+        lay.setSpacing(3)
+        self._tlbl = QLabel(title.upper())
+        self._tlbl.setStyleSheet(
+            f"color:{MUT}; font-size:10px; font-weight:700; letter-spacing:0.8px;")
+        self._vlbl = QLabel(value)
+        self._vlbl.setStyleSheet(
+            f"color:{colour}; font-size:24px; font-weight:800;")
+        lay.addWidget(self._tlbl)
+        lay.addWidget(self._vlbl)
+
+    def set_value(self, v: str):
+        self._vlbl.setText(str(v))
+
+
+class MplCanvas(FigureCanvas if HAS_MPL else QWidget):
+    def __init__(self, parent=None, width=5, height=3.2):
+        if not HAS_MPL:
+            super().__init__(parent)
+            return
+        self.fig = Figure(figsize=(width, height), facecolor=BG2)
+        self.fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.20)
+        super().__init__(self.fig)
+        self.setParent(parent)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+
+class DashboardWindow(QMainWindow):
+    def __init__(self, data_manager, theme: str = "dark", parent=None):
+        super().__init__(parent)
+        self.data_manager = data_manager
+        self.theme        = theme
+        self._days        = 7
+
+        self.setWindowTitle("PostureGuard — Dashboard")
+        self.setMinimumSize(1000, 680)
+        self.resize(1180, 760)
+        self.setStyleSheet(get_stylesheet(theme))
+        self._build_ui()
+        self._load_data()
+
+    # ──────────────────────────────────────────── layout ──────────────────
+    def _build_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(18, 14, 18, 14)
+        root.setSpacing(14)
+
+        # ── Header ────────────────────────────────────────────────────────
+        hdr = QHBoxLayout()
+        title = QLabel("Dashboard")
+        title.setFont(QFont("Segoe UI", 20, QFont.Bold))
+        title.setStyleSheet(f"color:{ACC}; letter-spacing:-0.5px;")
+        self._range_combo = QComboBox()
+        self._range_combo.addItems(["Last 7 days", "Last 14 days", "Last 30 days"])
+        self._range_combo.setFixedWidth(140)
+        self._range_combo.currentIndexChanged.connect(self._on_range_changed)
+        self._refresh_btn = QPushButton("⟳  Refresh")
+        self._refresh_btn.setObjectName("iconButton")
+        self._refresh_btn.setFixedWidth(110)
+        self._refresh_btn.clicked.connect(self._load_data)
+        self._export_btn = QPushButton("⬇  Export CSV")
+        self._export_btn.setObjectName("iconButton")
+        self._export_btn.setFixedWidth(120)
+        self._export_btn.clicked.connect(self._export_csv)
+        hdr.addWidget(title)
+        hdr.addStretch()
+        hdr.addWidget(QLabel("Range:"))
+        hdr.addWidget(self._range_combo)
+        hdr.addSpacing(8)
+        hdr.addWidget(self._refresh_btn)
+        hdr.addWidget(self._export_btn)
+        root.addLayout(hdr)
+
+        # ── Stat cards ────────────────────────────────────────────────────
+        cards = QHBoxLayout()
+        cards.setSpacing(10)
+        self._c_sessions = StatCard("Total Sessions",   "--", ACC)
+        self._c_score    = StatCard("Avg Posture Score","--", GRN)
+        self._c_good_pct = StatCard("Good Posture %",   "--", GRN)
+        self._c_p_alert  = StatCard("Posture Alerts",   "--", ORG)
+        self._c_d_alert  = StatCard("Drowsy Alerts",    "--", RED)
+        for c in (self._c_sessions, self._c_score, self._c_good_pct,
+                  self._c_p_alert, self._c_d_alert):
+            cards.addWidget(c)
+        root.addLayout(cards)
+
+        # ── Charts ────────────────────────────────────────────────────────
+        if HAS_MPL:
+            row1 = QHBoxLayout()
+            row1.setSpacing(12)
+
+            g_posture = QGroupBox("  Daily Posture Quality (%)")
+            g1 = QVBoxLayout(g_posture)
+            self._cv_posture = MplCanvas(self, width=5.5, height=3.2)
+            g1.addWidget(self._cv_posture)
+
+            g_alerts = QGroupBox("  Daily Alerts")
+            g2 = QVBoxLayout(g_alerts)
+            self._cv_alerts = MplCanvas(self, width=5.5, height=3.2)
+            g2.addWidget(self._cv_alerts)
+
+            row1.addWidget(g_posture)
+            row1.addWidget(g_alerts)
+            root.addLayout(row1)
+
+            row2 = QHBoxLayout()
+            row2.setSpacing(12)
+
+            g_pie = QGroupBox("  Posture Distribution")
+            g3 = QVBoxLayout(g_pie)
+            self._cv_pie = MplCanvas(self, width=4, height=3.2)
+            g3.addWidget(self._cv_pie)
+
+            g_neck = QGroupBox("  Avg Neck Angle per Day")
+            g4 = QVBoxLayout(g_neck)
+            self._cv_neck = MplCanvas(self, width=7, height=3.2)
+            g4.addWidget(self._cv_neck)
+
+            row2.addWidget(g_pie, stretch=3)
+            row2.addWidget(g_neck, stretch=5)
+            root.addLayout(row2)
+        else:
+            root.addWidget(QLabel("Install matplotlib (pip install matplotlib) to see charts."))
+
+    # ──────────────────────────────────────────── data ────────────────────
+    def _on_range_changed(self, idx: int):
+        self._days = [7, 14, 30][idx]
+        self._load_data()
+
+    def _load_data(self):
+        try:
+            hist = self.data_manager.get_history(days=self._days)
+        except Exception as e:
+            logger.error("Dashboard load error: %s", e)
+            return
+        if not hist:
+            return
+
+        self._c_sessions.set_value(str(hist.get("sessions", 0)))
+        avg  = hist.get("avg_posture_score", 0)
+        self._c_score.set_value(f"{avg:.0f}%")
+        self._c_good_pct.set_value(f"{hist.get('good_pct', 0):.0f}%")
+        self._c_p_alert.set_value(str(hist.get("posture_alerts", 0)))
+        self._c_d_alert.set_value(str(hist.get("drowsy_alerts", 0)))
+
+        if HAS_MPL:
+            self._draw_posture_line(hist)
+            self._draw_alerts_bar(hist)
+            self._draw_pie(hist)
+            self._draw_neck_line(hist)
+
+    # ──────────────────────────────────────────── charts ──────────────────
+    def _draw_posture_line(self, hist: dict):
+        cv  = self._cv_posture
+        cv.fig.clear()
+        ax  = cv.fig.add_subplot(111)
+        _mpl_axes_style(ax)
+        daily = hist.get("daily_scores", {})
+        if daily:
+            dates  = sorted(daily.keys())
+            scores = [daily[d] for d in dates]
+            lbls   = [d[-5:] for d in dates]
+            xs     = range(len(lbls))
+            # gradient fill
+            ax.fill_between(xs, scores, alpha=0.18, color=ACC)
+            ax.plot(xs, scores, color=ACC, linewidth=2.2,
+                    marker="o", markersize=5, markerfacecolor=BG2,
+                    markeredgecolor=ACC, markeredgewidth=2)
+            # colour each point
+            for i, s in enumerate(scores):
+                c = GRN if s >= 75 else (YEL if s >= 50 else RED)
+                ax.scatter(i, s, color=c, s=40, zorder=5)
+            ax.set_xticks(list(xs))
+            ax.set_xticklabels(lbls, rotation=30, ha="right")
+            ax.set_ylim(0, 105)
+            ax.axhline(75, color=GRN, linewidth=1, linestyle="--", alpha=0.4)
+        ax.set_ylabel("Score (%)")
+        ax.set_title("Posture Quality",
+                     color=TXT, fontsize=10, fontweight="bold", pad=6)
+        cv.fig.tight_layout(pad=0.6)
+        cv.draw()
+
+    def _draw_alerts_bar(self, hist: dict):
+        cv  = self._cv_alerts
+        cv.fig.clear()
+        ax  = cv.fig.add_subplot(111)
+        _mpl_axes_style(ax)
+        dp  = hist.get("daily_posture_alerts", {})
+        dd  = hist.get("daily_drowsy_alerts",  {})
+        all_d = sorted(set(list(dp.keys()) + list(dd.keys())))
+        if all_d:
+            lbls  = [d[-5:] for d in all_d]
+            xs    = np.arange(len(lbls))
+            bw    = 0.38
+            pv    = [dp.get(d, 0) for d in all_d]
+            dv    = [dd.get(d, 0) for d in all_d]
+            ax.bar(xs - bw/2, pv, bw, color=ORG, alpha=0.88,
+                   label="Posture", edgecolor=BG2, linewidth=0.5)
+            ax.bar(xs + bw/2, dv, bw, color=RED, alpha=0.88,
+                   label="Drowsy",  edgecolor=BG2, linewidth=0.5)
+            ax.set_xticks(xs)
+            ax.set_xticklabels(lbls, rotation=30, ha="right")
+            leg = ax.legend(facecolor=BD2, edgecolor=BD, labelcolor=TXT,
+                            fontsize=9, framealpha=0.9)
+        ax.set_ylabel("Count")
+        ax.set_title("Daily Alerts",
+                     color=TXT, fontsize=10, fontweight="bold", pad=6)
+        cv.fig.tight_layout(pad=0.6)
+        cv.draw()
+
+    def _draw_pie(self, hist: dict):
+        cv  = self._cv_pie
+        cv.fig.clear()
+        ax  = cv.fig.add_subplot(111)
+        ax.set_facecolor(BG2)
+        dist = hist.get("posture_distribution", {})
+        labels_map = {
+            "GOOD":         ("Good",         GRN),
+            "SLOUCHING":    ("Slouching",     YEL),
+            "FORWARD_HEAD": ("Forward Head",  ORG),
+            "NECK_STRAIN":  ("Neck Strain",   RED),
+            "UNKNOWN":      ("Unknown",       MUT),
+        }
+        vals, clrs, lbls = [], [], []
+        for k, (name, clr) in labels_map.items():
+            v = dist.get(k, 0)
+            if v > 0:
+                vals.append(v); clrs.append(clr); lbls.append(name)
+        if vals:
+            wedges, texts, pcts = ax.pie(
+                vals, colors=clrs, autopct="%1.0f%%",
+                startangle=90, pctdistance=0.78,
+                wedgeprops=dict(width=0.55, edgecolor=BG2, linewidth=2),
+            )
+            for t in texts:   t.set_color(TXT); t.set_fontsize(0)
+            for p in pcts:    p.set_color(BG); p.set_fontsize(9); p.set_fontweight("bold")
+            ax.legend(wedges, lbls, loc="lower center", ncol=2,
+                      facecolor=BD2, edgecolor=BD, labelcolor=TXT,
+                      fontsize=8, bbox_to_anchor=(0.5, -0.12))
+        else:
+            ax.text(0.5, 0.5, "No data", ha="center", va="center",
+                    color=MUT, fontsize=11, transform=ax.transAxes)
+        ax.set_title("Posture Distribution",
+                     color=TXT, fontsize=10, fontweight="bold", pad=6)
+        cv.fig.tight_layout(pad=0.6)
+        cv.draw()
+
+    def _draw_neck_line(self, hist: dict):
+        cv  = self._cv_neck
+        cv.fig.clear()
+        ax  = cv.fig.add_subplot(111)
+        _mpl_axes_style(ax)
+        daily_neck = hist.get("daily_avg_neck_angle", {})
+        if daily_neck:
+            dates  = sorted(daily_neck.keys())
+            angles = [daily_neck[d] for d in dates]
+            lbls   = [d[-5:] for d in dates]
+            xs     = range(len(lbls))
+            ax.fill_between(xs, angles, alpha=0.15, color=ACC2)
+            ax.plot(xs, angles, color=ACC2, linewidth=2.2,
+                    marker="D", markersize=5, markerfacecolor=BG2,
+                    markeredgecolor=ACC2, markeredgewidth=2)
+            ax.axhline(155, color=GRN, linewidth=1.2, linestyle="--", alpha=0.5,
+                       label="Good (≥155°)")
+            ax.axhline(130, color=YEL, linewidth=1,   linestyle=":",  alpha=0.5,
+                       label="Slouch (≥130°)")
+            ax.set_xticks(list(xs))
+            ax.set_xticklabels(lbls, rotation=30, ha="right")
+            ax.set_ylim(80, 185)
+            ax.legend(facecolor=BD2, edgecolor=BD, labelcolor=TXT,
+                      fontsize=8, framealpha=0.9)
+        else:
+            ax.text(0.5, 0.5, "No angle data yet", ha="center", va="center",
+                    color=MUT, fontsize=11, transform=ax.transAxes)
+        ax.set_ylabel("Angle (°)")
+        ax.set_title("Average Neck Angle per Day",
+                     color=TXT, fontsize=10, fontweight="bold", pad=6)
+        cv.fig.tight_layout(pad=0.6)
+        cv.draw()
+
+    # ──────────────────────────────────────────── export ──────────────────
+    def _export_csv(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Data",
+            str(Path(__file__).resolve().parent.parent.parent / "postureguard_export.csv"),
+            "CSV files (*.csv)"
+        )
+        if path:
+            try:
+                self.data_manager.export_data(path, "csv")
+                QMessageBox.information(self, "Export", f"Data exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", str(e))

@@ -1,0 +1,36 @@
+{
+    "app_name": "PostureGuard",
+    "version": "1.0.0",
+    "camera": {
+        "device_id": 0,
+        "frame_width": 640,
+        "frame_height": 480,
+        "fps": 30
+    },
+    "posture": {
+        "good_neck_angle_min": 155,
+        "good_neck_angle_max": 180,
+        "slouch_threshold": 155,
+        "forward_head_threshold": 130,
+        "neck_strain_threshold": 100,
+        "baseline_neck_angle": 165
+    },
+    "eye_monitor": {
+        "ear_threshold": 0.25,
+        "tired_threshold": 0.28,
+        "blink_threshold": 20,
+        "consecutive_frames": 20,
+        "tired_frames": 10
+    },
+    "alerts": {
+        "posture_check_interval": 5,
+        "drowsiness_check_interval": 3,
+        "snooze_duration": 60,
+        "sound_enabled": true,
+        "volume": 70
+    },
+    "processing": {
+        "skip_frames": 2,
+        "detection_confidence": 0.5
+    }
+}
