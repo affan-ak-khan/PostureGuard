@@ -40,8 +40,8 @@ class CalibrationDialog(QDialog):
         self._result: dict      = {}
 
         self.setWindowTitle("PostureGuard — Calibration")
-        self.setMinimumSize(560, 460)
-        self.resize(580, 480)
+        self.setMinimumSize(640, 560)
+        self.resize(680, 600)
         self.setModal(True)
 
         self._build_ui()
@@ -55,12 +55,23 @@ class CalibrationDialog(QDialog):
     # ----------------------------------------------------------- UI build ---
     def _build_ui(self):
         root = QVBoxLayout(self)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(16)
 
         # Title
         self._title_lbl = QLabel()
         self._title_lbl.setAlignment(Qt.AlignCenter)
-        self._title_lbl.setStyleSheet("font-size:16px; font-weight:700; color:#89b4fa; margin:6px;")
+        self._title_lbl.setStyleSheet(
+            "font-size:19px; font-weight:800; color:#58a6ff;"
+            " letter-spacing:-0.3px; margin:4px 0;"
+        )
         root.addWidget(self._title_lbl)
+
+        # Step indicator dots
+        self._step_dots = QLabel()
+        self._step_dots.setAlignment(Qt.AlignCenter)
+        self._step_dots.setStyleSheet("font-size: 22px; margin-bottom: 4px;")
+        root.addWidget(self._step_dots)
 
         # Steps (stacked)
         self._stack = QStackedWidget()
@@ -69,15 +80,19 @@ class CalibrationDialog(QDialog):
         p0 = QWidget()
         l0 = QVBoxLayout(p0)
         self._cam_label = QLabel("Initialising camera…")
-        self._cam_label.setFixedSize(480, 360)
+        self._cam_label.setFixedSize(560, 400)
         self._cam_label.setAlignment(Qt.AlignCenter)
-        self._cam_label.setStyleSheet("background:#000; border-radius:6px;")
+        self._cam_label.setStyleSheet(
+            "background:#0d1117; border:1px solid #30363d; border-radius:12px;"
+            " color:#8b949e; font-size:15px;"
+        )
         instructions = QLabel(
             "Position yourself so your full upper body is visible.\n"
             "Sit up straight with your head level, then click Next."
         )
         instructions.setAlignment(Qt.AlignCenter)
         instructions.setWordWrap(True)
+        instructions.setStyleSheet("font-size:15px; padding:8px;")
         l0.addWidget(self._cam_label, alignment=Qt.AlignHCenter)
         l0.addWidget(instructions)
         self._stack.addWidget(p0)
@@ -88,14 +103,18 @@ class CalibrationDialog(QDialog):
         lbl1 = QLabel("Hold a straight posture while we capture your baseline.\nPlease stay still.")
         lbl1.setAlignment(Qt.AlignCenter)
         lbl1.setWordWrap(True)
+        lbl1.setStyleSheet("font-size:15px; padding:6px;")
         self._baseline_pb = QProgressBar()
         self._baseline_pb.setRange(0, self.BASELINE_FRAMES)
-        self._baseline_pb.setFormat("Capturing… %v / %m frames")
-        self._baseline_pb.setFixedHeight(30)
+        self._baseline_pb.setFormat("Capturing\u2026 %v / %m frames")
+        self._baseline_pb.setFixedHeight(36)
         self._cam_label2 = QLabel("Camera feed")
-        self._cam_label2.setFixedSize(480, 300)
+        self._cam_label2.setFixedSize(560, 340)
         self._cam_label2.setAlignment(Qt.AlignCenter)
-        self._cam_label2.setStyleSheet("background:#000; border-radius:6px;")
+        self._cam_label2.setStyleSheet(
+            "background:#0d1117; border:1px solid #30363d; border-radius:12px;"
+            " color:#8b949e; font-size:15px;"
+        )
         l1.addWidget(self._cam_label2, alignment=Qt.AlignHCenter)
         l1.addWidget(lbl1)
         l1.addWidget(self._baseline_pb)
@@ -107,10 +126,11 @@ class CalibrationDialog(QDialog):
         l2.setAlignment(Qt.AlignCenter)
         done_lbl = QLabel("✅  Calibration complete!")
         done_lbl.setAlignment(Qt.AlignCenter)
-        done_lbl.setStyleSheet("font-size:18px; font-weight:700; color:#a6e3a1;")
+        done_lbl.setStyleSheet("font-size:22px; font-weight:800; color:#3fb950;")
         self._result_lbl = QLabel("")
         self._result_lbl.setAlignment(Qt.AlignCenter)
         self._result_lbl.setWordWrap(True)
+        self._result_lbl.setStyleSheet("font-size:15px; padding:10px;")
         l2.addWidget(done_lbl)
         l2.addWidget(self._result_lbl)
         self._stack.addWidget(p2)
@@ -119,14 +139,22 @@ class CalibrationDialog(QDialog):
 
         # Navigation buttons
         nav = QHBoxLayout()
-        self._back_btn = QPushButton("← Back")
+        nav.setSpacing(10)
+        self._back_btn = QPushButton("\u2190 Back")
+        self._back_btn.setFixedHeight(42)
+        self._back_btn.setObjectName("iconButton")
         self._back_btn.clicked.connect(self._on_back)
-        self._next_btn = QPushButton("Next →")
+        self._next_btn = QPushButton("Next \u2192")
+        self._next_btn.setFixedHeight(42)
         self._next_btn.clicked.connect(self._on_next)
-        self._finish_btn = QPushButton("Finish")
+        self._finish_btn = QPushButton("\u2713  Finish")
+        self._finish_btn.setFixedHeight(42)
+        self._finish_btn.setObjectName("startButton")
         self._finish_btn.clicked.connect(self.accept)
         self._finish_btn.setVisible(False)
         self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.setFixedHeight(42)
+        self._cancel_btn.setObjectName("iconButton")
         self._cancel_btn.clicked.connect(self.reject)
         nav.addWidget(self._cancel_btn)
         nav.addStretch()
@@ -143,7 +171,27 @@ class CalibrationDialog(QDialog):
             "Step 2 of 3 — Capture Baseline",
             "Step 3 of 3 — Done",
         ]
-        self._title_lbl.setText(titles[step])
+        self._title_lbl.setText(titles[step])        # Update step dots
+        dots = []
+        for i in range(3):
+            if i == step:
+                dots.append('\u25cf')  # filled circle
+            elif i < step:
+                dots.append('\u25cf')  # filled (completed)
+            else:
+                dots.append('\u25cb')  # empty circle
+        colours = []
+        for i in range(3):
+            if i < step:
+                colours.append('#3fb950')  # green for completed
+            elif i == step:
+                colours.append('#58a6ff')  # accent blue for current
+            else:
+                colours.append('#30363d')  # muted for future
+        dot_html = '  '.join(
+            f'<span style="color:{c};">{d}</span>' for d, c in zip(dots, colours)
+        )
+        self._step_dots.setText(dot_html)
         self._back_btn.setEnabled(step > 0)
         self._next_btn.setVisible(step < 2)
         self._finish_btn.setVisible(step == 2)

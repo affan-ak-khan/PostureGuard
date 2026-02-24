@@ -22,8 +22,8 @@ class SettingsDialog(QDialog):
         self._settings = data_manager.get_settings()
 
         self.setWindowTitle("PostureGuard — Preferences")
-        self.setMinimumSize(500, 440)
-        self.resize(540, 480)
+        self.setMinimumSize(580, 520)
+        self.resize(620, 580)
 
         self._build_ui()
         self._populate()
@@ -31,6 +31,31 @@ class SettingsDialog(QDialog):
     # ----------------------------------------------------------------- UI ---
     def _build_ui(self):
         root = QVBoxLayout(self)
+        root.setSpacing(16)
+        root.setContentsMargins(20, 20, 20, 20)
+
+        # Header
+        hdr = QWidget()
+        hdr.setStyleSheet(
+            "background: #161b22; border-radius: 12px; padding: 2px;"
+        )
+        hdr_lay = QHBoxLayout(hdr)
+        hdr_lay.setContentsMargins(18, 14, 18, 14)
+        title_lbl = QLabel("Preferences")
+        title_lbl.setStyleSheet(
+            "color: #58a6ff; font-size: 18px; font-weight: 800; background: transparent;"
+        )
+        desc_lbl = QLabel("Customise PostureGuard settings")
+        desc_lbl.setStyleSheet(
+            "color: #8b949e; font-size: 13px; font-weight: 400; background: transparent;"
+        )
+        title_col = QVBoxLayout()
+        title_col.setSpacing(2)
+        title_col.addWidget(title_lbl)
+        title_col.addWidget(desc_lbl)
+        hdr_lay.addLayout(title_col)
+        root.addWidget(hdr)
+
         self._tabs = QTabWidget()
 
         self._tab_general   = self._make_general_tab()
@@ -47,6 +72,7 @@ class SettingsDialog(QDialog):
         root.addWidget(self._tabs)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.setCenterButtons(False)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
@@ -55,8 +81,13 @@ class SettingsDialog(QDialog):
     def _make_general_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(10, 12, 10, 8)
+        lay.setSpacing(10)
         grp = QGroupBox("Application")
         g = QGridLayout(grp)
+        g.setSpacing(10)
+        g.setContentsMargins(14, 10, 14, 12)
+        g.setColumnMinimumWidth(0, 200)
 
         g.addWidget(QLabel("Theme:"), 0, 0)
         self._theme_combo = QComboBox()
@@ -82,8 +113,13 @@ class SettingsDialog(QDialog):
     def _make_posture_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(10, 12, 10, 8)
+        lay.setSpacing(10)
         grp = QGroupBox("Posture Thresholds")
         g = QGridLayout(grp)
+        g.setSpacing(10)
+        g.setContentsMargins(14, 10, 14, 12)
+        g.setColumnMinimumWidth(0, 200)
 
         g.addWidget(QLabel("Slouch angle threshold (°):"), 0, 0)
         self._slouch_sb = QDoubleSpinBox()
@@ -110,8 +146,13 @@ class SettingsDialog(QDialog):
     def _make_drowsy_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(10, 12, 10, 8)
+        lay.setSpacing(10)
         grp = QGroupBox("Eye / Drowsiness")
         g = QGridLayout(grp)
+        g.setSpacing(10)
+        g.setContentsMargins(14, 10, 14, 12)
+        g.setColumnMinimumWidth(0, 200)
 
         g.addWidget(QLabel("EAR threshold:"), 0, 0)
         self._ear_sb = QDoubleSpinBox()
@@ -138,8 +179,13 @@ class SettingsDialog(QDialog):
     def _make_alerts_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(10, 12, 10, 8)
+        lay.setSpacing(10)
         grp = QGroupBox("Alert Settings")
         g = QGridLayout(grp)
+        g.setSpacing(10)
+        g.setContentsMargins(14, 10, 14, 12)
+        g.setColumnMinimumWidth(0, 200)
 
         self._sound_cb = QCheckBox("Enable sound alerts")
         g.addWidget(self._sound_cb, 0, 0, 1, 2)
@@ -168,8 +214,13 @@ class SettingsDialog(QDialog):
     def _make_camera_tab(self):
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(10, 12, 10, 8)
+        lay.setSpacing(10)
         grp = QGroupBox("Camera Configuration")
         g = QGridLayout(grp)
+        g.setSpacing(10)
+        g.setContentsMargins(14, 10, 14, 12)
+        g.setColumnMinimumWidth(0, 200)
 
         g.addWidget(QLabel("Camera device ID:"), 0, 0)
         self._cam_id_sb = QSpinBox()
