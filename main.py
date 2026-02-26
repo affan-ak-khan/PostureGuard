@@ -16,12 +16,12 @@ _LIB_DIR = ROOT_DIR / "lib"
 if _LIB_DIR.exists():
     sys.path.insert(0, str(_LIB_DIR))
 
-from PyQt5.QtWidgets import QApplication, QMessageBox, QSplashScreen
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap, QColor
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtCore import Qt
 
 from src.data_manager import DataManager
 from src.ui.main_window import MainWindow
+from src.ui.landing_window import LandingWindow
 
 
 def setup_logging(log_dir: Path) -> logging.Logger:
@@ -82,20 +82,6 @@ def load_config(config_path: Path) -> dict:
     return defaults
 
 
-def create_splash(app: QApplication) -> QSplashScreen:
-    pixmap = QPixmap(480, 280)
-    pixmap.fill(QColor("#1e1e2e"))
-    splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
-    splash.showMessage(
-        "Loading PostureGuard...",
-        Qt.AlignHCenter | Qt.AlignBottom,
-        QColor("#cdd6f4"),
-    )
-    splash.show()
-    app.processEvents()
-    return splash
-
-
 def main() -> int:
     root = ROOT_DIR
     log_dir = root / "logs"
@@ -116,8 +102,6 @@ def main() -> int:
     app.setApplicationVersion(config.get("version", "1.0.0"))
     app.setOrganizationName("PostureGuard")
 
-    splash = create_splash(app)
-
     try:
         db_path = data_dir / "sessions.db"
         data_manager = DataManager(str(db_path))
@@ -128,13 +112,13 @@ def main() -> int:
         QMessageBox.critical(None, "Database Error", f"Cannot initialise database:\n{exc}")
         return 1
 
-    window_ref = []
+    window_ref = []  # keep references alive
 
     def launch_main():
-        splash.close()
+        """Open the main monitoring window."""
         try:
             window = MainWindow(config=config, data_manager=data_manager)
-            window_ref.append(window)  # keep reference alive
+            window_ref.append(window)
             window.show()
             logger.info("Main window launched")
         except Exception as exc:
@@ -142,7 +126,13 @@ def main() -> int:
             QMessageBox.critical(None, "Startup Error", f"Failed to start:\n{exc}")
             app.quit()
 
-    QTimer.singleShot(1500, launch_main)
+    # Show landing window first; main window opens when user clicks Get Started
+    landing = LandingWindow()
+    landing.get_started.connect(launch_main)
+    window_ref.append(landing)
+    landing.show()
+    logger.info("Landing window shown")
+
     exit_code = app.exec_()
     logger.info("PostureGuard exiting with code %d", exit_code)
     return exit_code

@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QVBoxLayout, QGroupBox, QProgressBar,
     QStatusBar, QAction, QMessageBox, QSizePolicy,
     QFrame, QGridLayout, QListWidget, QListWidgetItem,
-    QScrollArea,
+    QScrollArea, QDialog,
 )
 
 try:
@@ -67,8 +67,8 @@ class StatusBadge(QLabel):
     def __init__(self, text="--", parent=None):
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumWidth(180)
-        self.setFixedHeight(42)
+        self.setMinimumWidth(0)
+        self.setFixedHeight(30)
         self._apply(MUTED)
 
     def set_status(self, text: str, hex_colour: str):
@@ -78,8 +78,8 @@ class StatusBadge(QLabel):
     def _apply(self, bg: str):
         self.setStyleSheet(
             f"background: {bg}22; color: {bg}; border: 2px solid {bg};"
-            f" border-radius: 18px;"
-            f" font-weight: 800; font-size: 14px; padding: 6px 22px;"
+            f" border-radius: 12px;"
+            f" font-weight: 800; font-size: 12px; padding: 4px 12px;"
             f" letter-spacing: 1px;"
         )
 
@@ -93,7 +93,7 @@ class ScoreRing(QWidget):
         super().__init__(parent)
         self._score   = 0
         self._colour  = ACCENT
-        self.setFixedSize(120, 120)
+        self.setFixedSize(88, 88)
 
     def set_score(self, score: int):
         self._score  = max(0, min(100, score))
@@ -122,7 +122,7 @@ class ScoreRing(QWidget):
         p.drawArc(rect, 90 * 16, -span)
         # centre text
         p.setPen(QColor(TEXT))
-        p.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        p.setFont(QFont("Segoe UI", 12, QFont.Bold))
         p.drawText(QRectF(0, 0, w, h), Qt.AlignCenter, f"{self._score}%")
 
 
@@ -208,22 +208,22 @@ class MetricCard(QFrame):
     def __init__(self, label: str, value: str = "--",
                  accent: str = ACCENT, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(56)
+        self.setMinimumHeight(44)
         self.setStyleSheet(
             f"QFrame {{ background: {BG2}; border: 1px solid {BORDER};"
-            f" border-left: 4px solid {accent}; border-radius: 10px; }}"
+            f" border-left: 3px solid {accent}; border-radius: 8px; }}"
         )
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 6, 10, 6)
-        lay.setSpacing(1)
+        lay.setContentsMargins(8, 4, 8, 4)
+        lay.setSpacing(0)
         self._lbl = QLabel(label.upper())
         self._lbl.setStyleSheet(
-            f"color:{MUTED}; font-size:10px; font-weight:700; letter-spacing:1px;"
+            f"color:{MUTED}; font-size:9px; font-weight:700; letter-spacing:1px;"
             f" border:none; background:transparent;"
         )
         self._val = QLabel(value)
         self._val.setStyleSheet(
-            f"color:{accent}; font-size:18px; font-weight:800;"
+            f"color:{accent}; font-size:15px; font-weight:800;"
             f" border:none; background:transparent;"
         )
         lay.addWidget(self._lbl)
@@ -261,241 +261,256 @@ class MainWindow(QMainWindow):
     # ──────────────────────────────────────────── UI build ────────────────
 
     def _build_ui(self):
-        self.setWindowTitle("PostureGuard - AI Posture & Drowsiness Monitor")
-        self.setMinimumSize(1180, 740)
-        self.resize(1360, 860)
+        self.setWindowTitle("PostureGuard — AI Posture & Drowsiness Monitor")
+        self.setMinimumSize(860, 600)
+        self.resize(1100, 700)
 
         central = QWidget()
         self.setCentralWidget(central)
 
-        # Outer container with a branded header bar at the top
         outer = QVBoxLayout(central)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # App header bar
+        # ── Slim header bar ───────────────────────────────────────────────
         header_bar = QWidget()
-        header_bar.setFixedHeight(60)
-        header_bar.setStyleSheet(
-            f"background: {BG2}; border-bottom: 1px solid {BORDER};"
-        )
-        hb_lay = QHBoxLayout(header_bar)
-        hb_lay.setContentsMargins(20, 0, 20, 0)
-        hb_lay.setSpacing(0)
+        header_bar.setFixedHeight(48)
+        header_bar.setStyleSheet(f"background:{BG2}; border-bottom:1px solid {BORDER};")
+        hb = QHBoxLayout(header_bar)
+        hb.setContentsMargins(16, 0, 16, 0)
         app_name = QLabel("PostureGuard")
         app_name.setStyleSheet(
-            f"color: {ACCENT}; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;"
-        )
-        app_sub = QLabel("  \u2014  AI Posture & Drowsiness Monitor")
-        app_sub.setStyleSheet(f"color: {MUTED}; font-size: 14px; font-weight: 400;")
-        self._header_status = QLabel("Idle")
+            f"color:{ACCENT}; font-size:17px; font-weight:800; letter-spacing:-0.5px;")
+        app_sub = QLabel("  —  AI Posture & Drowsiness Monitor")
+        app_sub.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+        self._header_status = QLabel("● Idle")
         self._header_status.setStyleSheet(
-            f"color: {MUTED}; font-size: 13px; font-weight: 600;"
-            f" background: #21262d; border: 1px solid {BORDER};"
-            f" border-radius: 12px; padding: 5px 18px;"
-        )
-        hb_lay.addWidget(app_name)
-        hb_lay.addWidget(app_sub)
-        hb_lay.addStretch()
-        hb_lay.addWidget(self._header_status)
+            f"color:{MUTED}; font-size:12px; font-weight:600;"
+            f" background:#21262d; border:1px solid {BORDER};"
+            f" border-radius:10px; padding:4px 14px;")
+        hb.addWidget(app_name)
+        hb.addWidget(app_sub)
+        hb.addStretch()
+        hb.addWidget(self._header_status)
         outer.addWidget(header_bar)
 
-        # Main content area
+        # ── Body = sidebar + main content ─────────────────────────────
+        body = QWidget()
+        outer.addWidget(body, stretch=1)
+        body_lay = QHBoxLayout(body)
+        body_lay.setContentsMargins(0, 0, 0, 0)
+        body_lay.setSpacing(0)
+
+        # ─── Left sidebar ──────────────────────────────────────────────
+        sidebar = QWidget()
+        sidebar.setFixedWidth(90)
+        sidebar.setObjectName("sidebar")
+        sidebar.setStyleSheet(
+            f"QWidget#sidebar {{ background:{BG2}; border-right:1px solid {BORDER}; }}")
+        sb_lay = QVBoxLayout(sidebar)
+        sb_lay.setContentsMargins(8, 16, 8, 16)
+        sb_lay.setSpacing(6)
+
+        def _nav(icon: str, label: str, tip: str) -> QPushButton:
+            btn = QPushButton()
+            btn.setObjectName("sideNavBtn")
+            btn.setFixedSize(74, 64)
+            btn.setToolTip(tip)
+            bl = QVBoxLayout(btn)
+            bl.setContentsMargins(0, 6, 0, 6)
+            bl.setSpacing(3)
+            il = QLabel(icon)
+            il.setAlignment(Qt.AlignCenter)
+            il.setStyleSheet("font-size:22px; background:transparent; border:none;")
+            tl = QLabel(label)
+            tl.setAlignment(Qt.AlignCenter)
+            tl.setStyleSheet(
+                f"font-size:10px; color:{MUTED}; background:transparent; border:none;"
+                f" font-weight:600;")
+            bl.addWidget(il)
+            bl.addWidget(tl)
+            return btn
+
+        self.dashboard_btn  = _nav("📊", "Analytics",  "Open Analytics Dashboard  (Ctrl+D)")
+        self.calibrate_btn  = _nav("🎯", "Calibrate",  "3-step Calibration Wizard")
+        self.neck_chart_btn = _nav("📈", "Neck Chart", "Live Neck Angle Chart")
+        self.settings_btn   = _nav("⚙",  "Settings",   "Settings  (Ctrl+,)")
+        self.contact_btn    = _nav("📧", "Contact",    "Contact Us")
+        self._theme_btn     = _nav("🌙", "Theme",      "Toggle Dark / Light Theme")
+
+        for b in (self.dashboard_btn, self.calibrate_btn, self.neck_chart_btn):
+            sb_lay.addWidget(b)
+        sb_lay.addStretch()
+        for b in (self.settings_btn, self.contact_btn, self._theme_btn):
+            sb_lay.addWidget(b)
+
+        body_lay.addWidget(sidebar)
+
+        # ─── Main content ───────────────────────────────────────────────
         content = QWidget()
-        outer.addWidget(content, stretch=1)
+        body_lay.addWidget(content, stretch=1)
         root = QHBoxLayout(content)
-        root.setContentsMargins(20, 20, 20, 20)
-        root.setSpacing(20)
+        root.setContentsMargins(12, 12, 12, 12)
+        root.setSpacing(12)
 
-        # ── LEFT column ───────────────────────────────────────────────────
+        # ── LEFT: camera + controls ───────────────────────────────────────
         left = QVBoxLayout()
-        left.setSpacing(14)
+        left.setSpacing(8)
 
-        # Camera feed
-        cam_group = QGroupBox("  Camera Feed")
+        cam_group = QGroupBox("Camera Feed")
         cam_lay   = QVBoxLayout(cam_group)
-        cam_lay.setSpacing(10)
+        cam_lay.setContentsMargins(8, 8, 8, 8)
+        cam_lay.setSpacing(8)
+
         self.camera_label = QLabel()
-        self.camera_label.setMinimumSize(640, 480)
+        self.camera_label.setMinimumSize(400, 300)
+        self.camera_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.camera_label.setAlignment(Qt.AlignCenter)
         self.camera_label.setStyleSheet(
-            f"background:#0d1117; border:1px solid {BORDER}; border-radius:12px;"
-            f" color:{MUTED}; font-size:15px;"
-        )
-        self.camera_label.setText("Press Start Monitoring to begin")
-        cam_lay.addWidget(self.camera_label)
+            f"background:#0d1117; border:1px solid {BORDER}; border-radius:8px;"
+            f" color:{MUTED}; font-size:13px;")
+        self.camera_label.setText("Press  Start  to begin monitoring")
+        cam_lay.addWidget(self.camera_label, stretch=1)
 
+        # Start / Stop row
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
-        self.start_btn = QPushButton("Start Monitoring")
+        btn_row.setSpacing(8)
+        self.start_btn = QPushButton("▶  Start")
         self.start_btn.setObjectName("startButton")
-        self.start_btn.setFixedHeight(50)
-        self.stop_btn  = QPushButton("Stop Monitoring")
+        self.start_btn.setFixedHeight(38)
+        self.start_btn.setToolTip("Start monitoring  (Ctrl+S)")
+        self.stop_btn  = QPushButton("■  Stop")
         self.stop_btn.setObjectName("stopButton")
-        self.stop_btn.setFixedHeight(50)
+        self.stop_btn.setFixedHeight(38)
+        self.stop_btn.setToolTip("Stop monitoring  (Ctrl+X)")
         btn_row.addWidget(self.start_btn)
         btn_row.addWidget(self.stop_btn)
         cam_lay.addLayout(btn_row)
-
-        ctrl_row = QHBoxLayout()
-        ctrl_row.setSpacing(10)
-        self.dashboard_btn = QPushButton("Dashboard")
-        self.settings_btn  = QPushButton("Settings")
-        self.calibrate_btn = QPushButton("Calibrate")
-        for b in (self.dashboard_btn, self.settings_btn, self.calibrate_btn):
-            b.setObjectName("iconButton")
-            b.setFixedHeight(44)
-            ctrl_row.addWidget(b)
-        cam_lay.addLayout(ctrl_row)
         left.addWidget(cam_group, stretch=1)
 
-        # Neck angle sparkline
-        neck_group = QGroupBox("  Live Neck Angle")
-        neck_lay   = QVBoxLayout(neck_group)
-        neck_lay.setContentsMargins(10, 8, 10, 8)
+        # Neck chart & label kept off-layout (fed by signals, displayed in popup)
         self._neck_chart = NeckChart()
         self._neck_label = QLabel("--")
         self._neck_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._neck_label.setStyleSheet(f"color:{ACCENT}; font-size:28px; font-weight:800;")
-        nh = QHBoxLayout()
-        nh.setSpacing(12)
-        nh.addWidget(self._neck_chart, stretch=1)
-        nh.addWidget(self._neck_label)
-        neck_lay.addLayout(nh)
-        left.addWidget(neck_group)
+        self._neck_label.setStyleSheet(f"color:{ACCENT}; font-size:22px; font-weight:800;")
+        self._neck_chart_popup: QDialog | None = None
 
-        # ── RIGHT column (scrollable) ─────────────────────────────────────
+        # ── RIGHT: score + status (compact, scrollable) ───────────────────
         right_scroll = QScrollArea()
         right_scroll.setWidgetResizable(True)
         right_scroll.setFrameShape(QFrame.NoFrame)
+        right_scroll.setFixedWidth(290)
         right_scroll.setStyleSheet(
-            "QScrollArea { background: transparent; border: none; }"
-            " QScrollBar:vertical { width: 6px; background: transparent; }"
-            f" QScrollBar::handle:vertical {{ background: {BORDER}; border-radius: 3px; }}"
-            " QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
-        )
+            "QScrollArea{background:transparent;border:none;}"
+            " QScrollBar:vertical{width:5px;background:transparent;}"
+            f" QScrollBar::handle:vertical{{background:{BORDER};border-radius:3px;}}"
+            " QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}")
         right_widget = QWidget()
-        right_widget.setStyleSheet("background: transparent;")
+        right_widget.setStyleSheet("background:transparent;")
         right = QVBoxLayout(right_widget)
-        right.setContentsMargins(0, 0, 0, 0)
-        right.setSpacing(14)
+        right.setContentsMargins(0, 0, 4, 0)
+        right.setSpacing(8)
 
-        # Score ring + session
-        sess_group = QGroupBox("  Session")
-        sess_lay = QVBoxLayout(sess_group)
-        sess_lay.setContentsMargins(14, 14, 14, 14)
-        sess_lay.setSpacing(12)
+        # ── Score ring + session info ─────────────────────────────────────
+        sess_group = QGroupBox("Session")
+        sess_lay   = QVBoxLayout(sess_group)
+        sess_lay.setContentsMargins(10, 10, 10, 10)
+        sess_lay.setSpacing(8)
 
-        # Ring row
+        # Ring + 2 cards side-by-side
         ring_row = QHBoxLayout()
-        ring_row.setSpacing(16)
+        ring_row.setSpacing(10)
         self._score_ring = ScoreRing()
-        ring_row.addWidget(self._score_ring, alignment=Qt.AlignCenter)
-
-        ring_info = QVBoxLayout()
-        ring_info.setSpacing(6)
-        self._card_duration = MetricCard("Duration",      "--:--", ACCENT)
-        self._card_score    = MetricCard("Posture Score", "0%",    GREEN)
-        ring_info.addWidget(self._card_duration)
-        ring_info.addWidget(self._card_score)
-        ring_row.addLayout(ring_info, stretch=1)
+        self._score_ring.setFixedSize(88, 88)
+        ring_row.addWidget(self._score_ring, alignment=Qt.AlignVCenter)
+        ring_right = QVBoxLayout()
+        ring_right.setSpacing(6)
+        self._card_duration = MetricCard("Duration",   "--:--", ACCENT)
+        self._card_score    = MetricCard("Score",      "0%",    GREEN)
+        self._card_session  = MetricCard("Session #",  "--",    ACCENT2)
+        ring_right.addWidget(self._card_duration)
+        ring_right.addWidget(self._card_score)
+        ring_right.addWidget(self._card_session)
+        ring_row.addLayout(ring_right, stretch=1)
         sess_lay.addLayout(ring_row)
-
-        # Session # below ring
-        self._card_session  = MetricCard("Session #",     "--",    ACCENT2)
-        sess_lay.addWidget(self._card_session)
         right.addWidget(sess_group)
 
-        # Posture + eye status
-        status_row = QHBoxLayout()
-        status_row.setSpacing(10)
-
-        p_group = QGroupBox("  Posture")
+        # ── Posture status ────────────────────────────────────────────────
+        p_group = QGroupBox("Posture")
         p_lay   = QVBoxLayout(p_group)
-        p_lay.setContentsMargins(14, 14, 14, 14)
-        p_lay.setSpacing(10)
+        p_lay.setContentsMargins(10, 8, 10, 8)
+        p_lay.setSpacing(6)
         self._posture_badge = StatusBadge("NOT STARTED")
-        self._posture_badge.setParent(p_group)
-        p_lay.addWidget(self._posture_badge, alignment=Qt.AlignHCenter)
+        self._posture_badge.setMinimumWidth(0)
+        p_lay.addWidget(self._posture_badge)
 
-        pl_angle = QHBoxLayout()
-        pl_angle.setSpacing(6)
-        angle_lbl = QLabel("Neck angle")
-        angle_lbl.setStyleSheet(f"color:{MUTED}; font-size:13px;")
-        pl_angle.addWidget(angle_lbl, stretch=1)
-        self._neck_val_lbl  = QLabel("--")
-        self._neck_val_lbl.setStyleSheet(f"color:{ACCENT}; font-size:15px; font-weight:700;")
-        pl_angle.addWidget(self._neck_val_lbl)
-        p_lay.addLayout(pl_angle)
+        for attr, lbl_text, colour in (
+            ("_neck_val_lbl",  "Neck angle",   ACCENT),
+            ("_p_alerts_lbl",  "Alerts today", ORANGE),
+        ):
+            row = QHBoxLayout()
+            row.setSpacing(4)
+            l = QLabel(lbl_text)
+            l.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+            v = QLabel("--")
+            v.setStyleSheet(f"color:{colour}; font-size:13px; font-weight:700;")
+            setattr(self, attr, v)
+            row.addWidget(l, stretch=1)
+            row.addWidget(v)
+            p_lay.addLayout(row)
+        right.addWidget(p_group)
 
-        pl_alerts = QHBoxLayout()
-        pl_alerts.setSpacing(6)
-        palerts_lbl = QLabel("Alerts today")
-        palerts_lbl.setStyleSheet(f"color:{MUTED}; font-size:13px;")
-        pl_alerts.addWidget(palerts_lbl, stretch=1)
-        self._p_alerts_lbl  = QLabel("0")
-        self._p_alerts_lbl.setStyleSheet(f"color:{ORANGE}; font-size:15px; font-weight:700;")
-        pl_alerts.addWidget(self._p_alerts_lbl)
-        p_lay.addLayout(pl_alerts)
-        status_row.addWidget(p_group)
-
-        e_group = QGroupBox("  Eyes")
+        # ── Eye status ───────────────────────────────────────────────────
+        e_group = QGroupBox("Eyes / Drowsiness")
         e_lay   = QVBoxLayout(e_group)
-        e_lay.setContentsMargins(14, 14, 14, 14)
-        e_lay.setSpacing(10)
+        e_lay.setContentsMargins(10, 8, 10, 8)
+        e_lay.setSpacing(6)
         self._eye_badge = StatusBadge("NOT STARTED")
-        e_lay.addWidget(self._eye_badge, alignment=Qt.AlignHCenter)
+        self._eye_badge.setMinimumWidth(0)
+        e_lay.addWidget(self._eye_badge)
 
-        el_ear = QHBoxLayout()
-        el_ear.setSpacing(6)
-        ear_lbl = QLabel("EAR value")
-        ear_lbl.setStyleSheet(f"color:{MUTED}; font-size:13px;")
-        el_ear.addWidget(ear_lbl, stretch=1)
-        self._ear_val_lbl = QLabel("--")
-        self._ear_val_lbl.setStyleSheet(f"color:{ACCENT2}; font-size:15px; font-weight:700;")
-        el_ear.addWidget(self._ear_val_lbl)
-        e_lay.addLayout(el_ear)
+        for attr, lbl_text, colour in (
+            ("_ear_val_lbl",   "EAR value",     ACCENT2),
+            ("_d_alerts_lbl",  "Drowsy alerts", RED),
+        ):
+            row = QHBoxLayout()
+            row.setSpacing(4)
+            l = QLabel(lbl_text)
+            l.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+            v = QLabel("0")
+            v.setStyleSheet(f"color:{colour}; font-size:13px; font-weight:700;")
+            setattr(self, attr, v)
+            row.addWidget(l, stretch=1)
+            row.addWidget(v)
+            e_lay.addLayout(row)
+        right.addWidget(e_group)
 
-        el_alerts = QHBoxLayout()
-        el_alerts.setSpacing(6)
-        dalerts_lbl = QLabel("Drowsy alerts")
-        dalerts_lbl.setStyleSheet(f"color:{MUTED}; font-size:13px;")
-        el_alerts.addWidget(dalerts_lbl, stretch=1)
-        self._d_alerts_lbl = QLabel("0")
-        self._d_alerts_lbl.setStyleSheet(f"color:{RED}; font-size:15px; font-weight:700;")
-        el_alerts.addWidget(self._d_alerts_lbl)
-        e_lay.addLayout(el_alerts)
-        status_row.addWidget(e_group)
-
-        right.addLayout(status_row)
-
-        # Today's stats cards
-        stats_group = QGroupBox("  Today's Stats")
+        # ── Today's 4 stat cards (2×2 grid) ──────────────────────────────
+        stats_group = QGroupBox("Today's Stats")
         stats_grid  = QGridLayout(stats_group)
-        stats_grid.setSpacing(10)
-        stats_grid.setContentsMargins(14, 14, 14, 14)
-        self._card_sessions   = MetricCard("Sessions",      "0", ACCENT)
-        self._card_good_pct   = MetricCard("Good Posture",  "0%", GREEN)
-        self._card_slouch     = MetricCard("Slouching",     "0%", YELLOW)
-        self._card_d_total    = MetricCard("Drowsy Alerts", "0",  RED)
-        stats_grid.addWidget(self._card_sessions,  0, 0)
-        stats_grid.addWidget(self._card_good_pct,  0, 1)
-        stats_grid.addWidget(self._card_slouch,    1, 0)
-        stats_grid.addWidget(self._card_d_total,   1, 1)
+        stats_grid.setContentsMargins(8, 8, 8, 8)
+        stats_grid.setSpacing(6)
+        self._card_sessions = MetricCard("Sessions",  "0", ACCENT)
+        self._card_good_pct = MetricCard("Good",      "0%", GREEN)
+        self._card_slouch   = MetricCard("Slouching", "0%", YELLOW)
+        self._card_d_total  = MetricCard("Drowsy",    "0",  RED)
+        stats_grid.addWidget(self._card_sessions, 0, 0)
+        stats_grid.addWidget(self._card_good_pct, 0, 1)
+        stats_grid.addWidget(self._card_slouch,   1, 0)
+        stats_grid.addWidget(self._card_d_total,  1, 1)
         right.addWidget(stats_group)
 
-        # Alert log
-        log_group = QGroupBox("  Recent Alerts")
+        # ── Alert log ────────────────────────────────────────────────────
+        log_group = QGroupBox("Recent Alerts")
         log_lay   = QVBoxLayout(log_group)
-        log_lay.setContentsMargins(12, 12, 12, 12)
+        log_lay.setContentsMargins(8, 8, 8, 8)
         self._alert_list = QListWidget()
-        self._alert_list.setMaximumHeight(160)
+        self._alert_list.setFixedHeight(120)
         self._alert_list.setStyleSheet(
-            f"QListWidget {{ background: {BG3}; border: 1px solid {BORDER};"
-            f" border-radius: 10px; padding: 6px; font-size: 13px; }}"
-            f" QListWidget::item {{ padding: 6px 10px; border-radius: 6px; }}"
-            f" QListWidget::item:hover {{ background: {BG2}; }}"
-        )
+            f"QListWidget{{background:{BG3};border:1px solid {BORDER};"
+            f"border-radius:8px;padding:4px;font-size:11px;}}"
+            f"QListWidget::item{{padding:3px 6px;border-radius:4px;}}"
+            f"QListWidget::item:hover{{background:{BG2};}}")
         self._alert_list.setSelectionMode(QListWidget.NoSelection)
         self._alert_list.setFocusPolicy(Qt.NoFocus)
         log_lay.addWidget(self._alert_list)
@@ -504,15 +519,15 @@ class MainWindow(QMainWindow):
         right.addStretch()
         right_scroll.setWidget(right_widget)
 
-        root.addLayout(left,  58)
-        root.addWidget(right_scroll, 42)
+        root.addLayout(left, stretch=1)
+        root.addWidget(right_scroll)
 
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready - press Start Monitoring to begin.")
+        self.status_bar.showMessage("Ready — press Start to begin.")
 
-        # Timers
+        # Tick timer
         self._ui_timer = QTimer(self)
         self._ui_timer.timeout.connect(self._on_ui_tick)
         self._ui_timer.setInterval(1000)
@@ -546,6 +561,9 @@ class MainWindow(QMainWindow):
         help_m = mb.addMenu("Help")
         help_m.addAction(QAction("About PostureGuard", self,
                                   triggered=self._show_about))
+        help_m.addSeparator()
+        help_m.addAction(QAction("Contact Us", self,
+                                  triggered=self._open_contact))
 
     # ──────────────────────────────────────────── signals ─────────────────
 
@@ -555,6 +573,9 @@ class MainWindow(QMainWindow):
         self.dashboard_btn.clicked.connect(self._open_dashboard)
         self.settings_btn.clicked.connect(self._open_settings)
         self.calibrate_btn.clicked.connect(self._open_calibration)
+        self.contact_btn.clicked.connect(self._open_contact)
+        self._theme_btn.clicked.connect(self._toggle_theme)
+        self.neck_chart_btn.clicked.connect(self._show_neck_chart_popup)
 
         self.camera_handler.frame_ready.connect(self._on_raw_frame)
         self.camera_handler.error_occurred.connect(self._on_camera_error)
@@ -729,10 +750,58 @@ class MainWindow(QMainWindow):
             self.alert_system.set_volume(new.get("alert_volume", 70))
             self.status_bar.showMessage("Settings saved.")
 
+    def _open_contact(self):
+        from src.ui.contact_dialog import ContactDialog
+        dlg = ContactDialog(self)
+        dlg.exec_()
+
     def _open_calibration(self):
         from src.ui.calibration_dialog import CalibrationDialog
         dlg = CalibrationDialog(self.config, self)
         dlg.exec_()
+
+    def _show_neck_chart_popup(self):
+        """Open (or bring to front) the floating Live Neck Angle chart window."""
+        if self._neck_chart_popup is None:
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Live Neck Angle Chart")
+            dlg.setMinimumSize(480, 200)
+            dlg.resize(560, 220)
+            dlg.setStyleSheet(self.styleSheet())
+            dlg.setWindowFlags(
+                Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint
+            )
+            lay = QVBoxLayout(dlg)
+            lay.setContentsMargins(12, 12, 12, 12)
+            lay.setSpacing(8)
+
+            # Title row
+            title_row = QHBoxLayout()
+            title_lbl = QLabel("Neck Angle  (deg)")
+            title_lbl.setStyleSheet(
+                f"color:{MUTED}; font-size:11px; font-weight:700;"
+                f" letter-spacing:1px; text-transform:uppercase;"
+            )
+            self._neck_label.setStyleSheet(
+                f"color:{ACCENT}; font-size:24px; font-weight:800;"
+            )
+            title_row.addWidget(title_lbl, stretch=1)
+            title_row.addWidget(self._neck_label)
+            lay.addLayout(title_row)
+
+            # Sparkline
+            self._neck_chart.setMinimumHeight(120)
+            lay.addWidget(self._neck_chart, stretch=1)
+
+            hint = QLabel("\u25b6  Chart updates in real time while monitoring is active.")
+            hint.setStyleSheet(f"color:{MUTED}; font-size:11px;")
+            lay.addWidget(hint)
+
+            self._neck_chart_popup = dlg
+
+        self._neck_chart_popup.show()
+        self._neck_chart_popup.raise_()
+        self._neck_chart_popup.activateWindow()
 
     def _toggle_theme(self):
         self.theme = "light" if self.theme == "dark" else "dark"
