@@ -21,6 +21,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QColor
 
 from src.data_manager import DataManager
+from src.mongodb_manager import MongoDBManager
 from src.ui.main_window import MainWindow
 
 
@@ -128,12 +129,42 @@ def main() -> int:
         QMessageBox.critical(None, "Database Error", f"Cannot initialise database:\n{exc}")
         return 1
 
+    # ── MongoDB cloud sync ────────────────────────────────────────────
+    mongo_mgr = None
+    mongo_cfg = config.get("mongodb", {})
+    if mongo_cfg.get("enabled", False):
+        try:
+            mongo_uri = mongo_cfg.get("uri", "")
+            mongo_db = mongo_cfg.get("database", "PostureGuard")
+            mongo_user_id = mongo_cfg.get("user_id")  # optional override
+            mongo_mgr = MongoDBManager(
+                uri=mongo_uri, db_name=mongo_db, user_id=mongo_user_id,
+            )
+            if mongo_mgr.connect():
+                data_manager.set_mongodb(mongo_mgr)
+                logger.info(
+                    "MongoDB cloud sync active — user=%s, db=%s",
+                    mongo_mgr.user_id, mongo_db,
+                )
+            else:
+                logger.warning("MongoDB connection failed — running with local DB only")
+                mongo_mgr = None
+        except Exception as exc:
+            logger.warning("MongoDB setup error: %s — running with local DB only", exc)
+            mongo_mgr = None
+
     window_ref = []
 
     def launch_main():
         splash.close()
         try:
             window = MainWindow(config=config, data_manager=data_manager)
+            # Attach MongoDB to alert system if available
+            if mongo_mgr is not None:
+                if hasattr(window, '_alert_system'):
+                    window._alert_system.set_mongodb(mongo_mgr)
+                elif hasattr(window, 'alert_system'):
+                    window.alert_system.set_mongodb(mongo_mgr)
             window_ref.append(window)  # keep reference alive
             window.show()
             logger.info("Main window launched")
@@ -144,6 +175,12 @@ def main() -> int:
 
     QTimer.singleShot(1500, launch_main)
     exit_code = app.exec_()
+    # Cleanup MongoDB connection
+    if mongo_mgr is not None:
+        try:
+            mongo_mgr.disconnect()
+        except Exception:
+            pass
     logger.info("PostureGuard exiting with code %d", exit_code)
     return exit_code
 

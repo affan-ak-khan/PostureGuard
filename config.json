@@ -32,5 +32,10 @@
     "processing": {
         "skip_frames": 2,
         "detection_confidence": 0.5
+    },
+    "mongodb": {
+        "enabled": true,
+        "uri": "mongodb+srv://needkart:morgan123@cluster0.7szmwla.mongodb.net/NeedKart?retryWrites=true&w=majority&appName=Cluster0",
+        "database": "PostureGuard"
     }
 }

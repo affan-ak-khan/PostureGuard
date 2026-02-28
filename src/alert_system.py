@@ -44,6 +44,11 @@ class AlertSystem:
         self._voice_until: dict       = {}   # voice-only cooldown
         self._history: list           = []
         self._tts_lock                = threading.Lock()
+        self._mongodb = None  # Optional MongoDBManager for cloud logging
+
+    def set_mongodb(self, mongodb_manager) -> None:
+        """Attach a MongoDBManager to log alerts to the cloud."""
+        self._mongodb = mongodb_manager
 
     # ---------------------------------------------------------------- public --
     def trigger_posture_alert(self, severity=GENTLE, neck_angle=0.0) -> None:
@@ -160,4 +165,15 @@ class AlertSystem:
         self._history.append({"type": t, "level": level, "message": msg, "timestamp": time.time()})
         if len(self._history) > 500:
             self._history = self._history[-500:]
+        # Sync alert to MongoDB (fire-and-forget)
+        if self._mongodb and self._mongodb.is_connected:
+            threading.Thread(
+                target=self._mongo_log_alert, args=(t, level, msg), daemon=True,
+            ).start()
+
+    def _mongo_log_alert(self, alert_type: str, severity: str, message: str) -> None:
+        try:
+            self._mongodb.log_alert(alert_type, severity, message)
+        except Exception as e:
+            logger.warning("MongoDB alert log failed: %s", e)
 

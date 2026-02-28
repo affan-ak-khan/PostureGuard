@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, Generator, List, Optional
@@ -65,8 +66,9 @@ class DataManager:
     );
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, mongodb_manager=None):
         self.db_path = str(db_path)
+        self._mongo = mongodb_manager  # Optional MongoDBManager instance
 
     def initialize_database(self) -> None:
         with self._connection() as conn:
@@ -87,6 +89,15 @@ class DataManager:
         finally:
             conn.close()
 
+    def set_mongodb(self, mongodb_manager) -> None:
+        """Attach a MongoDBManager for cloud sync."""
+        self._mongo = mongodb_manager
+
+    def _mongo_async(self, fn, *args, **kwargs) -> None:
+        """Run a MongoDB operation in a background thread (fire-and-forget)."""
+        if self._mongo and self._mongo.is_connected:
+            threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
+
     def create_session(self) -> int:
         now = datetime.now()
         with self._connection() as conn:
@@ -94,7 +105,15 @@ class DataManager:
                 "INSERT INTO sessions (start_time, status) VALUES (?, 'active')", (now,)
             )
             conn.commit()
-            return cur.lastrowid
+            sid = cur.lastrowid
+            self._mongo_async(self._mongo_create_session, sid)
+            return sid
+
+    def _mongo_create_session(self, session_id: int) -> None:
+        try:
+            self._mongo.create_session(session_id)
+        except Exception as exc:
+            logger.warning("MongoDB create_session failed: %s", exc)
 
     def end_session(self, session_id: int) -> None:
         now = datetime.now()
@@ -130,6 +149,17 @@ class DataManager:
                 (now, duration_minutes, posture_score, alerts + drows, session_id),
             )
             conn.commit()
+            self._mongo_async(
+                self._mongo_end_session, session_id, posture_score,
+                alerts + drows, duration_minutes,
+            )
+
+    def _mongo_end_session(self, session_id, score, alerts, duration):
+        try:
+            self._mongo.end_session(session_id, posture_score=score,
+                                    total_alerts=alerts, duration_minutes=duration)
+        except Exception as exc:
+            logger.warning("MongoDB end_session failed: %s", exc)
 
     def log_posture_event(self, session_id: int, event_data: dict) -> None:
         with self._connection() as conn:
@@ -138,6 +168,13 @@ class DataManager:
                 (session_id, datetime.now(), event_data.get("status"), event_data.get("neck_angle"), event_data.get("shoulder_alignment")),
             )
             conn.commit()
+        self._mongo_async(self._mongo_log_posture, session_id, dict(event_data))
+
+    def _mongo_log_posture(self, session_id, data):
+        try:
+            self._mongo.log_posture_event(session_id, data)
+        except Exception as exc:
+            logger.warning("MongoDB log_posture_event failed: %s", exc)
 
     def log_drowsiness_event(self, session_id: int, event_data: dict) -> None:
         with self._connection() as conn:
@@ -146,6 +183,13 @@ class DataManager:
                 (session_id, datetime.now(), event_data.get("ear"), event_data.get("blink_rate"), event_data.get("status", "ALERT")),
             )
             conn.commit()
+        self._mongo_async(self._mongo_log_drowsiness, session_id, dict(event_data))
+
+    def _mongo_log_drowsiness(self, session_id, data):
+        try:
+            self._mongo.log_drowsiness_event(session_id, data)
+        except Exception as exc:
+            logger.warning("MongoDB log_drowsiness_event failed: %s", exc)
 
     def get_session_stats(self, session_id: int) -> Optional[Dict[str, Any]]:
         with self._connection() as conn:
@@ -279,6 +323,13 @@ class DataManager:
         with self._connection() as conn:
             conn.execute(f"UPDATE user_settings SET {cols} WHERE id = ?", values)
             conn.commit()
+        self._mongo_async(self._mongo_save_settings, dict(settings))
+
+    def _mongo_save_settings(self, settings):
+        try:
+            self._mongo.save_settings(settings)
+        except Exception as exc:
+            logger.warning("MongoDB save_settings failed: %s", exc)
 
     def export_data(self, output_path: str, fmt: str = "csv") -> str:
         from pathlib import Path
