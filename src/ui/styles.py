@@ -24,7 +24,7 @@ DARK_THEME = """
 /* ── Global ─────────────────────────────────────────────── */
 * {
     font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
-    font-size:   14px;
+    font-size:   13px;
     color:       #e6edf3;
 }
 
@@ -74,18 +74,18 @@ QMenu::separator {
 QGroupBox {
     background: #161b22;
     border: 1px solid #30363d;
-    border-radius: 12px;
-    margin-top: 14px;
-    padding: 20px 16px 16px 16px;
+    border-radius: 10px;
+    margin-top: 10px;
+    padding: 14px 10px 10px 10px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 4px 14px;
+    padding: 3px 10px;
     color: #8b949e;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.8px;
     text-transform: uppercase;
@@ -96,11 +96,11 @@ QPushButton {
     background: #21262d;
     color: #e6edf3;
     border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 10px 22px;
-    font-size: 14px;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-size: 13px;
     font-weight: 600;
-    min-height: 20px;
+    min-height: 18px;
 }
 QPushButton:hover {
     background: #30363d;
@@ -123,9 +123,9 @@ QPushButton#startButton {
     color: #ffffff;
     border: 1px solid #2ea043;
     font-weight: 700;
-    font-size: 15px;
-    border-radius: 12px;
-    padding: 12px 28px;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 8px 20px;
 }
 QPushButton#startButton:hover {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -144,9 +144,9 @@ QPushButton#stopButton {
     color: #ffffff;
     border: 1px solid #da3633;
     font-weight: 700;
-    font-size: 15px;
-    border-radius: 12px;
-    padding: 12px 28px;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 8px 20px;
 }
 QPushButton#stopButton:hover {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -163,15 +163,44 @@ QPushButton#iconButton {
     background: #161b22;
     color: #8b949e;
     border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 8px 18px;
-    font-size: 13px;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 12px;
     font-weight: 600;
 }
 QPushButton#iconButton:hover {
     background: #21262d;
     color: #58a6ff;
     border-color: #58a6ff;
+}
+
+/* ── Sidebar nav buttons ──────────────────────────────── */
+QPushButton#sideNavBtn {
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    color: #8b949e;
+}
+QPushButton#sideNavBtn:hover {
+    background: rgba(88,166,255,0.15);
+    color: #58a6ff;
+    border: 1px solid rgba(88,166,255,0.25);
+}
+QPushButton#sideNavBtn:hover QLabel {
+    color: #58a6ff;
+}
+QPushButton#sideNavBtn:pressed {
+    background: rgba(88,166,255,0.25);
+}
+
+/* ── Tooltips ─────────────────────────────────────── */
+QToolTip {
+    background: #1c2128;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
 }
 
 /* ── Inputs ─────────────────────────────────────────────── */
@@ -409,7 +438,7 @@ LIGHT_THEME = """
 /* ── Global ─────────────────────────────────────────────── */
 * {
     font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
-    font-size:   14px;
+    font-size:   13px;
     color:       #1f2328;
 }
 
@@ -452,17 +481,17 @@ QMenu::item:selected {
 QGroupBox {
     background: #f6f8fa;
     border: 1px solid #d0d7de;
-    border-radius: 12px;
-    margin-top: 14px;
-    padding: 20px 16px 16px 16px;
+    border-radius: 10px;
+    margin-top: 10px;
+    padding: 14px 10px 10px 10px;
     font-weight: 700;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 4px 14px;
+    padding: 3px 10px;
     color: #656d76;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.8px;
 }
@@ -471,9 +500,9 @@ QPushButton {
     background: #f6f8fa;
     color: #1f2328;
     border: 1px solid #d0d7de;
-    border-radius: 10px;
-    padding: 10px 22px;
-    font-size: 14px;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-size: 13px;
     font-weight: 600;
 }
 QPushButton:hover {
@@ -496,8 +525,9 @@ QPushButton#startButton {
     color: #ffffff;
     border: 1px solid #2da44e;
     font-weight: 700;
-    font-size: 15px;
-    border-radius: 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 8px 20px;
 }
 QPushButton#startButton:hover {
     background: #2da44e;
@@ -509,21 +539,48 @@ QPushButton#stopButton {
     color: #ffffff;
     border: 1px solid #cf222e;
     font-weight: 700;
-    font-size: 15px;
-    border-radius: 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 8px 20px;
 }
 
 QPushButton#iconButton {
     background: #ffffff;
     color: #656d76;
     border: 1px solid #d0d7de;
-    border-radius: 10px;
-    font-size: 13px;
+    border-radius: 8px;
+    font-size: 12px;
     font-weight: 600;
+    padding: 5px 12px;
 }
 QPushButton#iconButton:hover {
     color: #0969da;
     border-color: #0969da;
+}
+
+/* ── Sidebar nav buttons ────────────────────────────── */
+QPushButton#sideNavBtn {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: #656d76;
+}
+QPushButton#sideNavBtn:hover {
+    background: rgba(9,105,218,0.12);
+    color: #0969da;
+}
+QPushButton#sideNavBtn:pressed {
+    background: rgba(9,105,218,0.20);
+}
+
+/* ── Tooltips ───────────────────────────────────── */
+QToolTip {
+    background: #ffffff;
+    color: #1f2328;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
 }
 
 QComboBox {
