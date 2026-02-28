@@ -11,7 +11,7 @@ from PyQt5.QtGui     import QFont, QColor
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QGroupBox,
-    QGridLayout, QFrame, QFileDialog, QMessageBox, QSizePolicy,
+    QGridLayout, QFrame, QFileDialog, QMessageBox, QSizePolicy, QScrollArea,
 )
 
 try:
@@ -56,24 +56,47 @@ def _mpl_axes_style(ax, bg=BG3):
 class StatCard(QFrame):
     """Metric card with coloured left border."""
     def __init__(self, title: str, value: str = "--",
-                 colour: str = ACC, parent=None):
+                 colour: str = ACC, icon: str = "", parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(100)
+        self.setMinimumHeight(82)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setStyleSheet(
             f"QFrame {{ background:{BG2}; border:1px solid {BD};"
-            f" border-left:5px solid {colour}; border-radius:14px; }}"
+            f" border-radius:12px; }}"
         )
+        # colour accent bar painted via inner indicator
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(18, 12, 18, 12)
-        lay.setSpacing(6)
+        lay.setContentsMargins(14, 10, 14, 10)
+        lay.setSpacing(4)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(6)
         self._tlbl = QLabel(title.upper())
         self._tlbl.setStyleSheet(
-            f"color:{MUT}; font-size:12px; font-weight:700; letter-spacing:1.2px;")
+            f"color:{MUT}; font-size:10px; font-weight:700;"
+            f" letter-spacing:1.2px; background:transparent; border:none;")
+        dot = QLabel("●")
+        dot.setStyleSheet(
+            f"color:{colour}; font-size:9px; background:transparent; border:none;")
+        top_row.addWidget(self._tlbl)
+        top_row.addStretch()
+        top_row.addWidget(dot)
+        lay.addLayout(top_row)
+
         self._vlbl = QLabel(value)
         self._vlbl.setStyleSheet(
-            f"color:{colour}; font-size:30px; font-weight:800;")
-        lay.addWidget(self._tlbl)
+            f"color:{colour}; font-size:26px; font-weight:800;"
+            f" background:transparent; border:none;")
         lay.addWidget(self._vlbl)
+
+        # bottom accent line
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFixedHeight(2)
+        line.setStyleSheet(
+            f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {colour}, stop:1 transparent); border:none;")
+        lay.addWidget(line)
 
     def set_value(self, v: str):
         self._vlbl.setText(str(v))
@@ -99,8 +122,8 @@ class DashboardWindow(QMainWindow):
         self._days        = 7
 
         self.setWindowTitle("PostureGuard — Dashboard")
-        self.setMinimumSize(1040, 720)
-        self.resize(1220, 800)
+        self.setMinimumSize(780, 530)
+        self.resize(960, 640)
         self.setStyleSheet(get_stylesheet(theme))
         self._build_ui()
         self._load_data()
@@ -110,8 +133,8 @@ class DashboardWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
-        root.setContentsMargins(20, 16, 20, 16)
-        root.setSpacing(16)
+        root.setContentsMargins(12, 10, 12, 10)
+        root.setSpacing(10)
 
         # ── Header ────────────────────────────────────────────────────────
         hdr = QHBoxLayout()
@@ -119,26 +142,26 @@ class DashboardWindow(QMainWindow):
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
         title = QLabel("Dashboard")
-        title.setFont(QFont("Segoe UI", 24, QFont.Bold))
+        title.setFont(QFont("Segoe UI", 18, QFont.Bold))
         title.setStyleSheet(f"color:{ACC}; letter-spacing:-0.5px;")
         subtitle = QLabel("Session history and posture analytics")
-        subtitle.setStyleSheet(f"color:{MUT}; font-size:14px;")
+        subtitle.setStyleSheet(f"color:{MUT}; font-size:12px;")
         title_col.addWidget(title)
         title_col.addWidget(subtitle)
         self._range_combo = QComboBox()
         self._range_combo.addItems(["Last 7 days", "Last 14 days", "Last 30 days"])
-        self._range_combo.setFixedWidth(160)
-        self._range_combo.setFixedHeight(40)
+        self._range_combo.setFixedWidth(150)
+        self._range_combo.setFixedHeight(32)
         self._range_combo.currentIndexChanged.connect(self._on_range_changed)
         self._refresh_btn = QPushButton("\u27f3  Refresh")
         self._refresh_btn.setObjectName("iconButton")
-        self._refresh_btn.setFixedWidth(120)
-        self._refresh_btn.setFixedHeight(40)
+        self._refresh_btn.setFixedWidth(110)
+        self._refresh_btn.setFixedHeight(32)
         self._refresh_btn.clicked.connect(self._load_data)
         self._export_btn = QPushButton("\u2b07  Export CSV")
         self._export_btn.setObjectName("iconButton")
-        self._export_btn.setFixedWidth(140)
-        self._export_btn.setFixedHeight(40)
+        self._export_btn.setFixedWidth(130)
+        self._export_btn.setFixedHeight(32)
         self._export_btn.clicked.connect(self._export_csv)
         hdr.addLayout(title_col)
         hdr.addStretch()
@@ -151,7 +174,7 @@ class DashboardWindow(QMainWindow):
 
         # ── Stat cards ────────────────────────────────────────────────────
         cards = QHBoxLayout()
-        cards.setSpacing(12)
+        cards.setSpacing(8)
         self._c_sessions = StatCard("Total Sessions",   "--", ACC)
         self._c_score    = StatCard("Avg Posture Score","--", GRN)
         self._c_good_pct = StatCard("Good Posture %",   "--", GRN)
@@ -165,18 +188,18 @@ class DashboardWindow(QMainWindow):
         # ── Charts ────────────────────────────────────────────────────────
         if HAS_MPL:
             row1 = QHBoxLayout()
-            row1.setSpacing(14)
+            row1.setSpacing(10)
 
             g_posture = QGroupBox("  Daily Posture Quality (%)")
             g1 = QVBoxLayout(g_posture)
-            g1.setContentsMargins(10, 8, 10, 10)
-            self._cv_posture = MplCanvas(self, width=5.5, height=3.2)
+            g1.setContentsMargins(8, 6, 8, 8)
+            self._cv_posture = MplCanvas(self, width=5.5, height=2.4)
             g1.addWidget(self._cv_posture)
 
             g_alerts = QGroupBox("  Daily Alerts")
             g2 = QVBoxLayout(g_alerts)
-            g2.setContentsMargins(10, 8, 10, 10)
-            self._cv_alerts = MplCanvas(self, width=5.5, height=3.2)
+            g2.setContentsMargins(8, 6, 8, 8)
+            self._cv_alerts = MplCanvas(self, width=5.5, height=2.4)
             g2.addWidget(self._cv_alerts)
 
             row1.addWidget(g_posture)
@@ -184,18 +207,18 @@ class DashboardWindow(QMainWindow):
             root.addLayout(row1)
 
             row2 = QHBoxLayout()
-            row2.setSpacing(14)
+            row2.setSpacing(10)
 
             g_pie = QGroupBox("  Posture Distribution")
             g3 = QVBoxLayout(g_pie)
-            g3.setContentsMargins(10, 8, 10, 10)
-            self._cv_pie = MplCanvas(self, width=4, height=3.2)
+            g3.setContentsMargins(8, 6, 8, 8)
+            self._cv_pie = MplCanvas(self, width=4, height=2.4)
             g3.addWidget(self._cv_pie)
 
             g_neck = QGroupBox("  Avg Neck Angle per Day")
             g4 = QVBoxLayout(g_neck)
-            g4.setContentsMargins(10, 8, 10, 10)
-            self._cv_neck = MplCanvas(self, width=7, height=3.2)
+            g4.setContentsMargins(8, 6, 8, 8)
+            self._cv_neck = MplCanvas(self, width=7, height=2.4)
             g4.addWidget(self._cv_neck)
 
             row2.addWidget(g_pie, stretch=3)

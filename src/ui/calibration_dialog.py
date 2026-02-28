@@ -9,7 +9,7 @@ from PyQt5.QtGui     import QImage, QPixmap
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QStackedWidget, QGroupBox, QSizePolicy,
-    QMessageBox,
+    QMessageBox, QWidget,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,8 @@ class CalibrationDialog(QDialog):
         self._result: dict      = {}
 
         self.setWindowTitle("PostureGuard — Calibration")
-        self.setMinimumSize(640, 560)
-        self.resize(680, 600)
+        self.setMinimumSize(500, 400)
+        self.resize(560, 460)
         self.setModal(True)
 
         self._build_ui()
@@ -55,15 +55,15 @@ class CalibrationDialog(QDialog):
     # ----------------------------------------------------------- UI build ---
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 20, 20, 20)
-        root.setSpacing(16)
+        root.setContentsMargins(14, 12, 14, 12)
+        root.setSpacing(10)
 
         # Title
         self._title_lbl = QLabel()
         self._title_lbl.setAlignment(Qt.AlignCenter)
         self._title_lbl.setStyleSheet(
-            "font-size:19px; font-weight:800; color:#58a6ff;"
-            " letter-spacing:-0.3px; margin:4px 0;"
+            "font-size:15px; font-weight:800; color:#58a6ff;"
+            " letter-spacing:-0.3px; margin:2px 0;"
         )
         root.addWidget(self._title_lbl)
 
@@ -80,11 +80,12 @@ class CalibrationDialog(QDialog):
         p0 = QWidget()
         l0 = QVBoxLayout(p0)
         self._cam_label = QLabel("Initialising camera…")
-        self._cam_label.setFixedSize(560, 400)
+        self._cam_label.setMinimumSize(300, 200)
+        self._cam_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._cam_label.setAlignment(Qt.AlignCenter)
         self._cam_label.setStyleSheet(
             "background:#0d1117; border:1px solid #30363d; border-radius:12px;"
-            " color:#8b949e; font-size:15px;"
+            " color:#8b949e; font-size:13px;"
         )
         instructions = QLabel(
             "Position yourself so your full upper body is visible.\n"
@@ -92,8 +93,8 @@ class CalibrationDialog(QDialog):
         )
         instructions.setAlignment(Qt.AlignCenter)
         instructions.setWordWrap(True)
-        instructions.setStyleSheet("font-size:15px; padding:8px;")
-        l0.addWidget(self._cam_label, alignment=Qt.AlignHCenter)
+        instructions.setStyleSheet("font-size:13px; padding:4px;")
+        l0.addWidget(self._cam_label)
         l0.addWidget(instructions)
         self._stack.addWidget(p0)
 
@@ -103,19 +104,20 @@ class CalibrationDialog(QDialog):
         lbl1 = QLabel("Hold a straight posture while we capture your baseline.\nPlease stay still.")
         lbl1.setAlignment(Qt.AlignCenter)
         lbl1.setWordWrap(True)
-        lbl1.setStyleSheet("font-size:15px; padding:6px;")
+        lbl1.setStyleSheet("font-size:13px; padding:4px;")
         self._baseline_pb = QProgressBar()
         self._baseline_pb.setRange(0, self.BASELINE_FRAMES)
         self._baseline_pb.setFormat("Capturing\u2026 %v / %m frames")
-        self._baseline_pb.setFixedHeight(36)
+        self._baseline_pb.setFixedHeight(28)
         self._cam_label2 = QLabel("Camera feed")
-        self._cam_label2.setFixedSize(560, 340)
+        self._cam_label2.setMinimumSize(300, 180)
+        self._cam_label2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._cam_label2.setAlignment(Qt.AlignCenter)
         self._cam_label2.setStyleSheet(
             "background:#0d1117; border:1px solid #30363d; border-radius:12px;"
-            " color:#8b949e; font-size:15px;"
+            " color:#8b949e; font-size:13px;"
         )
-        l1.addWidget(self._cam_label2, alignment=Qt.AlignHCenter)
+        l1.addWidget(self._cam_label2)
         l1.addWidget(lbl1)
         l1.addWidget(self._baseline_pb)
         self._stack.addWidget(p1)
@@ -141,19 +143,19 @@ class CalibrationDialog(QDialog):
         nav = QHBoxLayout()
         nav.setSpacing(10)
         self._back_btn = QPushButton("\u2190 Back")
-        self._back_btn.setFixedHeight(42)
+        self._back_btn.setFixedHeight(36)
         self._back_btn.setObjectName("iconButton")
         self._back_btn.clicked.connect(self._on_back)
         self._next_btn = QPushButton("Next \u2192")
-        self._next_btn.setFixedHeight(42)
+        self._next_btn.setFixedHeight(36)
         self._next_btn.clicked.connect(self._on_next)
         self._finish_btn = QPushButton("\u2713  Finish")
-        self._finish_btn.setFixedHeight(42)
+        self._finish_btn.setFixedHeight(36)
         self._finish_btn.setObjectName("startButton")
         self._finish_btn.clicked.connect(self.accept)
         self._finish_btn.setVisible(False)
         self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.setFixedHeight(42)
+        self._cancel_btn.setFixedHeight(36)
         self._cancel_btn.setObjectName("iconButton")
         self._cancel_btn.clicked.connect(self.reject)
         nav.addWidget(self._cancel_btn)
