@@ -3,9 +3,9 @@ landing_window.py — PostureGuard welcome / landing screen.
 Shown once at startup; emits get_started signal when user clicks the button.
 """
 
-from PyQt5.QtCore    import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal
+from PyQt5.QtCore    import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFrame, QGraphicsOpacityEffect,
 )
 
@@ -14,6 +14,8 @@ class LandingWindow(QMainWindow):
     """Frameless gradient landing screen."""
     get_started = pyqtSignal()
 
+    _COUNTDOWN = 3          # seconds before auto-launch
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("PostureGuard")
@@ -21,8 +23,11 @@ class LandingWindow(QMainWindow):
         self.resize(860, 560)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self._drag_pos = None
+        self._countdown = self._COUNTDOWN
         self._build_ui()
+        self._center_on_screen()
         self._fade_in()
+        self._start_countdown()
 
     # ──────────────────────────────────────────────────────── UI ───────────
 
@@ -228,6 +233,7 @@ class LandingWindow(QMainWindow):
                 );
             }
         """)
+        self._gs_btn = gs_btn
         gs_btn.clicked.connect(self._launch)
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -252,6 +258,25 @@ class LandingWindow(QMainWindow):
 
     # ──────────────────────────────────────────────────── logic ────────────
 
+    def _center_on_screen(self):
+        screen = QApplication.primaryScreen().availableGeometry()
+        fg = self.frameGeometry()
+        fg.moveCenter(screen.center())
+        self.move(fg.topLeft())
+
+    def _start_countdown(self):
+        self._cd_timer = QTimer(self)
+        self._cd_timer.timeout.connect(self._tick)
+        self._cd_timer.start(1000)
+
+    def _tick(self):
+        self._countdown -= 1
+        if self._countdown <= 0:
+            self._cd_timer.stop()
+            self._launch()
+        else:
+            self._gs_btn.setText(f"▶   Get Started  ({self._countdown})")
+
     def _fade_in(self):
         effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(effect)
@@ -263,6 +288,8 @@ class LandingWindow(QMainWindow):
         self._anim.start()
 
     def _launch(self):
+        if hasattr(self, '_cd_timer'):
+            self._cd_timer.stop()
         self.setGraphicsEffect(None)
         self.get_started.emit()
         self.close()

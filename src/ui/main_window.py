@@ -14,7 +14,7 @@ from PyQt5.QtCore  import Qt, QTimer, QRectF, pyqtSlot
 from PyQt5.QtGui   import (QImage, QPixmap, QIcon, QFont, QPainter,
                             QPainterPath, QColor, QPen, QLinearGradient)
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QLabel, QPushButton,
+    QApplication, QMainWindow, QWidget, QLabel, QPushButton,
     QHBoxLayout, QVBoxLayout, QGroupBox, QProgressBar,
     QStatusBar, QAction, QMessageBox, QSizePolicy,
     QFrame, QGridLayout, QListWidget, QListWidgetItem,
@@ -825,4 +825,5 @@ class MainWindow(QMainWindow):
         self.posture_detector.stop()
         self.eye_monitor.stop()
         event.accept()
+        QApplication.quit()
 

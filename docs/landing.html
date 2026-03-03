@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PostureGuard — AI Posture &amp; Drowsiness Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #06090f;
+      --bg2:      #0d1117;
+      --bg3:      #161b22;
+      --card:     rgba(255,255,255,0.045);
+      --border:   rgba(255,255,255,0.09);
+      --blue:     #4facfe;
+      --violet:   #7c6eff;
+      --cyan:     #00d2ff;
+      --green:    #3fb950;
+      --yellow:   #d29922;
+      --red:      #f85149;
+      --text:     #e6edf3;
+      --muted:    rgba(200,215,255,0.5);
+      --grad:     linear-gradient(135deg, #4facfe 0%, #7c6eff 100%);
+      --grad2:    linear-gradient(135deg, #060d18 0%, #0d0921 50%, #060d18 100%);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: rgba(79,172,254,0.4); border-radius: 3px; }
+
+    /* ── Global Background ─────────────────────────────────────────── */
+    .page-bg {
+      position: fixed; inset: 0; z-index: -20; pointer-events: none;
+      background: var(--grad2);
+    }
+    .page-bg::before {
+      content: '';
+      position: absolute; top: -200px; right: -200px;
+      width: 700px; height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,172,254,0.12) 0%, transparent 70%);
+      animation: float1 14s ease-in-out infinite;
+    }
+    .page-bg::after {
+      content: '';
+      position: absolute; bottom: -200px; left: -200px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,110,255,0.10) 0%, transparent 70%);
+      animation: float2 18s ease-in-out infinite;
+    }
+    .grid-pattern {
+      position: fixed; inset: 0; z-index: -19; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(79,172,254,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,172,254,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    @keyframes float1 {
+      0%,100% { transform: scale(1) translate(0,0); opacity:0.8; }
+      50%      { transform: scale(1.3) translate(40px, -40px); opacity:1; }
+    }
+    @keyframes float2 {
+      0%,100% { transform: scale(1.2) translate(0,0); opacity:0.6; }
+      50%      { transform: scale(1) translate(-30px, 30px); opacity:1; }
+    }
+
+    /* ── Utility ───────────────────────────────────────────────────── */
+    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .section {
+      min-height: 100vh;
+      display: grid;
+      align-items: center;
+      padding: 80px 0;
+      box-sizing: border-box;
+    }
+    .text-center { text-align: center; }
+    .text-grad {
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+
+    /* ── Scroll-reveal ─────────────────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(36px);
+      transition: opacity 0.7s cubic-bezier(.22,1,.36,1), transform 0.7s cubic-bezier(.22,1,.36,1);
+    }
+    .reveal.left  { transform: translateX(-40px); }
+    .reveal.right { transform: translateX( 40px); }
+    .reveal.visible { opacity:1; transform: none; }
+
+    /* ── Header ────────────────────────────────────────────────────── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(6,9,15,0.85);
+      border-bottom: 1px solid var(--border);
+      transition: box-shadow 0.3s;
+    }
+    header.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+
+    .header-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1200px; margin: 0 auto; padding: 14px 24px;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; text-decoration: none;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--grad);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(79,172,254,0.3);
+    }
+    .logo-text {
+      font-size: 18px; font-weight: 800;
+      letter-spacing: -0.5px;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    nav { display: flex; align-items: center; gap: 4px; }
+    nav a {
+      color: rgba(200,215,255,0.65);
+      text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      transition: color .2s, background .2s;
+    }
+    nav a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700; cursor: pointer; border: none;
+      border-radius: 999px;
+      transition: transform .2s, box-shadow .2s, opacity .2s;
+      text-decoration: none;
+    }
+    .btn:hover { transform: scale(1.04); }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--grad);
+      color: white;
+      padding: 11px 24px;
+      font-size: 14px;
+      box-shadow: 0 4px 20px rgba(79,172,254,0.35);
+    }
+    .btn-primary:hover { box-shadow: 0 8px 32px rgba(79,172,254,0.5); }
+
+    .btn-lg {
+      padding: 16px 36px;
+      font-size: 16px;
+      box-shadow: 0 6px 30px rgba(79,172,254,0.4);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--blue);
+      padding: 14px 30px;
+      font-size: 15px;
+      border: 2px solid rgba(79,172,254,0.4);
+    }
+    .btn-outline:hover { border-color: var(--blue); background: rgba(79,172,254,0.08); }
+
+    /* Mobile menu */
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 24px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform .3s, opacity .3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    .mobile-nav {
+      display: none; flex-direction: column; gap: 4px;
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(6,9,15,0.97);
+    }
+    .mobile-nav a {
+      color: rgba(200,215,255,0.75); text-decoration: none;
+      font-size: 15px; font-weight: 500; padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .mobile-nav a:last-of-type { border-bottom: none; }
+    .mobile-nav .btn-primary { margin-top: 8px; justify-content: center; }
+
+    /* ── Hero ──────────────────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      align-items: center;
+      padding: 90px 0 60px; /* top offset clears fixed header */
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(79,172,254,0.10);
+      border: 1px solid rgba(79,172,254,0.25);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--blue);
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .badge-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 8px var(--green), 0 0 0 0 rgba(63,185,80,.4); }
+      50%      { box-shadow: 0 0 12px var(--green), 0 0 0 8px rgba(63,185,80,0); }
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(42px, 5vw, 72px);
+      font-weight: 900;
+      line-height: 1.08;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+    }
+    .hero h1 em { font-style: normal; background: var(--grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    .hero-desc {
+      font-size: 17px; font-weight: 300;
+      color: var(--muted);
+      max-width: 480px;
+      margin-bottom: 36px;
+      line-height: 1.75;
+    }
+
+    .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+
+    .hero-stats {
+      display: flex; gap: 36px; margin-top: 48px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+    .stat-num {
+      font-size: 28px; font-weight: 900;
+      background: var(--grad);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* Posture Visualizer (right side) */
+    .posture-viz {
+      position: relative;
+      border-radius: 28px;
+      overflow: hidden;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+      min-height: 480px;
+      display: flex; flex-direction: column;
+    }
+
+    .viz-topbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+    .viz-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-r { background: #f85149; } .dot-y { background: #d29922; } .dot-g { background: #3fb950; }
+    .viz-title { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+
+    .viz-body {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 28px 24px;
+      gap: 20px;
+      position: relative;
+    }
+
+    /* Stick Figure */
+    .figure-container {
+      position: relative; width: 200px; height: 260px;
+    }
+    .figure-svg { width: 100%; height: 100%; }
+
+    .posture-label {
+      position: absolute;
+      top: -12px; left: 50%; transform: translateX(-50%);
+      background: rgba(63,185,80,0.15);
+      border: 1px solid rgba(63,185,80,0.4);
+      color: var(--green);
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      padding: 4px 12px; border-radius: 999px;
+      white-space: nowrap;
+      animation: statusCycle 8s infinite;
+    }
+    @keyframes statusCycle {
+      0%,30%  { background:rgba(63,185,80,.15);  border-color:rgba(63,185,80,.4);  color:#3fb950; }
+      33%,63% { background:rgba(248,81,73,.15);  border-color:rgba(248,81,73,.4);  color:#f85149; }
+      66%,96% { background:rgba(210,153,34,.15); border-color:rgba(210,153,34,.4); color:#d29922; }
+      100%    { background:rgba(63,185,80,.15);  border-color:rgba(63,185,80,.4);  color:#3fb950; }
+    }
+
+    .neck-line { stroke: #4facfe; animation: neckAnim 8s infinite; }
+    @keyframes neckAnim {
+      0%,30%  { stroke: #3fb950; }
+      33%,63% { stroke: #f85149; }
+      66%,96% { stroke: #d29922; }
+      100%    { stroke: #3fb950; }
+    }
+    .body-line { stroke: rgba(200,215,255,0.6); }
+    .spine-line { stroke: rgba(79,172,254,0.7); animation: spineAnim 8s infinite; }
+    @keyframes spineAnim {
+      0%,30%  { stroke: rgba(63,185,80,0.8); }
+      33%,63% { stroke: rgba(248,81,73,0.8); }
+      66%,96% { stroke: rgba(210,153,34,0.8); }
+      100%    { stroke: rgba(63,185,80,0.8); }
+    }
+
+    .head-circle { fill: rgba(200,215,255,0.15); stroke: rgba(200,215,255,0.5); stroke-width: 2; animation: headAnim 8s infinite; }
+    @keyframes headAnim {
+      0%,30%  { stroke:rgba(63,185,80,.8);  fill:rgba(63,185,80,.05); }
+      33%,63% { stroke:rgba(248,81,73,.8);  fill:rgba(248,81,73,.05); }
+      66%,96% { stroke:rgba(210,153,34,.8); fill:rgba(210,153,34,.05); }
+      100%    { stroke:rgba(63,185,80,.8);  fill:rgba(63,185,80,.05); }
+    }
+
+    /* Metric bars at bottom of viz */
+    .metrics-grid {
+      width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .metric-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .metric-header { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+    .metric-dot { width:8px; height:8px; border-radius:50%; }
+    .metric-name { font-size:11px; font-weight:600; color:var(--muted); }
+    .metric-val { font-size:20px; font-weight:800; }
+    .metric-bar { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; margin-top:8px; overflow:hidden; }
+    .metric-fill { height:100%; border-radius:2px; }
+
+    /* EAR blink animation */
+    .ear-fill { width: 72%; background: linear-gradient(90deg, var(--green), #2ea043); animation: earPulse 3s ease-in-out infinite; }
+    @keyframes earPulse {
+      0%,100% { width:72%; } 45% { width:20%; } 55% { width:20%; }
+    }
+
+    /* Neck angle fill */
+    .angle-fill { width: 85%; background: var(--grad); animation: angleCycle 8s infinite; }
+    @keyframes angleCycle {
+      0%,30%  { width:85%; background: linear-gradient(90deg,#3fb950,#2ea043); }
+      33%,63% { width:35%; background: linear-gradient(90deg,#f85149,#e03c3c); }
+      66%,96% { width:60%; background: linear-gradient(90deg,#d29922,#b88c10); }
+      100%    { width:85%; background: linear-gradient(90deg,#3fb950,#2ea043); }
+    }
+
+    /* ── Section Headers ───────────────────────────────────────────── */
+    .section-eyebrow {
+      font-size: 12px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--blue);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(32px, 4vw, 54px);
+      font-weight: 900; letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 18px;
+    }
+    .section-sub {
+      font-size: 17px; font-weight: 300;
+      color: var(--muted);
+      max-width: 580px; margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ── Why Choose (Features) ─────────────────────────────────────── */
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .feature-list { display: flex; flex-direction: column; gap: 18px; }
+    .feature-item {
+      display: flex; gap: 18px; align-items: flex-start;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px;
+      transition: border-color .3s, background .3s, transform .3s;
+      cursor: default;
+    }
+    .feature-item:hover {
+      border-color: rgba(79,172,254,0.3);
+      background: rgba(79,172,254,0.06);
+      transform: translateX(6px);
+    }
+    .feature-icon {
+      width: 52px; height: 52px; flex-shrink: 0;
+      border-radius: 14px;
+      background: rgba(79,172,254,0.12);
+      border: 1px solid rgba(79,172,254,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .feature-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .feature-desc  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* Screenshot-style UI mockup */
+    .ui-mockup {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .mock-bar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .mock-pill {
+      height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.12);
+    }
+    .mock-body { padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .mock-row { display: flex; gap: 12px; }
+    .mock-cam {
+      flex: 1; aspect-ratio: 4/3; border-radius: 14px;
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .mock-cam::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, rgba(63,185,80,0.08) 0%, transparent 70%);
+      animation: camGlow 3s ease-in-out infinite;
+    }
+    @keyframes camGlow {
+      0%,100% { opacity:.5; } 50% { opacity:1; }
+    }
+    .cam-icon { font-size: 36px; filter: grayscale(0.4); }
+
+    /* Skeleton overlay lines (pose landmarks hint) */
+    .pose-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pose-overlay svg { width: 80%; height: 80%; opacity: 0.25; }
+
+    .mock-panel { width: 130px; display: flex; flex-direction: column; gap: 10px; }
+    .mock-metric {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px;
+    }
+    .mock-metric-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .mock-metric-val   { font-size: 17px; font-weight: 800; }
+    .mock-metric-val.good   { color: var(--green); }
+    .mock-metric-val.warn   { color: var(--yellow); }
+    .mock-metric-val.normal { color: var(--blue); }
+
+    .mock-alert {
+      background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.25);
+      border-radius: 12px; padding: 10px 14px;
+      display: flex; gap: 10px; align-items: center;
+      animation: alertBlink 4s ease-in-out infinite;
+    }
+    @keyframes alertBlink {
+      0%,100% { opacity:1; } 50% { opacity:0.6; }
+    }
+    .alert-dot        { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+    .alert-text-main  { font-size:11px; font-weight:700; color:var(--red); }
+    .alert-text-sub   { font-size:10px; color:var(--muted); }
+
+    /* ── How It Works ──────────────────────────────────────────────── */
+    .how-bg { background: rgba(255,255,255,0.015); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+      margin-top: 60px; position: relative;
+    }
+    .steps-line {
+      position: absolute; top: 42px; left: calc(16.67% + 28px); right: calc(16.67% + 28px);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(79,172,254,0.3), rgba(124,110,255,0.3), transparent);
+      z-index: 0;
+    }
+    .step-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px; padding: 36px 28px;
+      text-align: center; position: relative; z-index: 1;
+      transition: border-color .3s, transform .4s;
+    }
+    .step-card:hover {
+      border-color: rgba(79,172,254,0.35);
+      transform: translateY(-8px);
+    }
+    .step-num {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--grad);
+      color: white; font-size: 22px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 6px 24px rgba(79,172,254,0.4);
+      animation: stepPulse 3s ease-in-out infinite;
+    }
+    @keyframes stepPulse {
+      0%,100% { box-shadow: 0 6px 24px rgba(79,172,254,.4); }
+      50%      { box-shadow: 0 8px 36px rgba(124,110,255,.6); }
+    }
+    .step-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+    .step-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+    .step-desc  { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+    /* ── Stats Banner ──────────────────────────────────────────────── */
+    .stats-banner {
+      background: linear-gradient(135deg, rgba(79,172,254,0.1) 0%, rgba(124,110,255,0.1) 100%);
+      border: 1px solid rgba(79,172,254,0.15);
+      border-radius: 28px; padding: 56px 48px;
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+    .stats-item { text-align: center; }
+    .stats-num {
+      font-size: 44px; font-weight: 900;
+      background: var(--grad);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1;
+    }
+    .stats-label { font-size: 13px; color: var(--muted); margin-top: 8px; font-weight: 500; }
+
+    /* ── Testimonials ──────────────────────────────────────────────── */
+    .testimonials-bg {
+      position: relative;
+    }
+    .testi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+      margin-top: 60px;
+    }
+    .testi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px; padding: 28px;
+      transition: border-color .3s, transform .3s, box-shadow .3s;
+    }
+    .testi-card:hover {
+      border-color: rgba(79,172,254,0.25);
+      transform: translateY(-6px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    .testi-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+    .testi-user   { display:flex; align-items:center; gap:12px; }
+    .testi-avatar {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--grad);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 800; color: white;
+      flex-shrink: 0;
+    }
+    .testi-name { font-size: 15px; font-weight: 700; }
+    .testi-role { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .testi-stars { color: #d29922; font-size: 15px; letter-spacing: 1px; }
+    .testi-quote {
+      font-size: 14px; color: var(--muted);
+      line-height: 1.7; margin-bottom: 20px;
+      font-style: italic;
+    }
+    .testi-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .testi-stat-val   { font-size: 15px; font-weight: 800; color: var(--blue); }
+    .testi-stat-label { font-size: 11px; color: var(--muted); }
+    .testi-badge {
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+      background: rgba(79,172,254,0.12);
+      color: var(--blue);
+      border: 1px solid rgba(79,172,254,0.2);
+    }
+
+    /* Testi bottom stats row */
+    .testi-stats-row {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; margin-top: 60px;
+    }
+    .testi-stats-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--blue);
+      border-radius: 18px; padding: 28px 20px; text-align: center;
+    }
+    .testi-stats-card:nth-child(2n) { border-top-color: var(--violet); }
+    .testi-stats-icon { font-size: 36px; margin-bottom: 12px; display: block; }
+    .testi-stats-num  { font-size: 30px; font-weight: 900; }
+    .testi-stats-num.b  { color: var(--blue); }
+    .testi-stats-num.v  { color: var(--violet); }
+    .testi-stats-lbl  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Contact ───────────────────────────────────────────────────── */
+    .contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+      margin-top: 60px;
+    }
+
+    .contact-info {
+      background: linear-gradient(135deg, rgba(79,172,254,0.15) 0%, rgba(124,110,255,0.15) 100%);
+      border: 1px solid rgba(79,172,254,0.2);
+      border-radius: 24px; padding: 40px 36px;
+      display: flex; flex-direction: column; justify-content: center; gap: 32px;
+    }
+    .contact-info h3 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .contact-detail { display:flex; align-items:center; gap:14px; }
+    .contact-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(79,172,254,0.12);
+      border: 1px solid rgba(79,172,254,0.2);
+      display:flex; align-items:center; justify-content:center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .contact-label { font-size:11px; color:var(--muted); margin-bottom:2px; }
+    .contact-value { font-size: 15px; font-weight: 600; }
+
+    .contact-form {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 24px; padding: 36px;
+    }
+    .form-group { margin-bottom: 18px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+    .form-group input,
+    .form-group textarea {
+      width: 100%; padding: 14px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none;
+      transition: border-color .2s, background .2s;
+    }
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: rgba(200,215,255,0.3); }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: rgba(79,172,254,0.5);
+      background: rgba(79,172,254,0.04);
+    }
+    .form-group textarea { resize: none; height: 120px; }
+    .form-submit { width:100%; padding:16px; font-size:15px; margin-top:4px; }
+
+    .form-status {
+      padding: 12px 18px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; margin-top: 12px;
+      display: none;
+    }
+    .form-status.success { background:rgba(63,185,80,.1); border:1px solid rgba(63,185,80,.3); color:var(--green); display:block; }
+    .form-status.error   { background:rgba(248,81,73,.1); border:1px solid rgba(248,81,73,.3); color:var(--red); display:block; }
+
+    /* ── CTA Banner ────────────────────────────────────────────────── */
+    .cta-banner {
+      margin-top: 80px;
+      background: linear-gradient(135deg, rgba(79,172,254,0.12) 0%, rgba(124,110,255,0.12) 50%, rgba(0,210,255,0.08) 100%);
+      border: 1px solid rgba(79,172,254,0.2);
+      border-radius: 32px; padding: 72px 48px;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .cta-banner::before {
+      content: '';
+      position: absolute; top: -80px; right: -80px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,110,255,0.15) 0%, transparent 70%);
+      animation: float1 10s ease-in-out infinite;
+    }
+    .cta-banner h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(36px, 4vw, 60px);
+      font-weight: 900; letter-spacing: -1.5px; margin-bottom: 18px;
+    }
+    .cta-banner p { font-size:18px; color:var(--muted); max-width:560px; margin:0 auto 36px; }
+    .cta-icons { font-size: 48px; margin-bottom: 28px; display:flex; justify-content:center; gap:20px; }
+    .cta-icon { animation: ctaBounce 2s ease-in-out infinite; }
+    .cta-icon:nth-child(2) { animation-delay: .3s; }
+    .cta-icon:nth-child(3) { animation-delay: .6s; }
+    @keyframes ctaBounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+    .cta-actions { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; position:relative; z-index:1; }
+
+    /* ── Scroll Top ────────────────────────────────────────────────── */
+    #scroll-top {
+      position: fixed; bottom: 28px; right: 28px; z-index: 99;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--grad);
+      border: none; cursor: pointer; color: white; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 24px rgba(79,172,254,0.45);
+      opacity: 0; transform: scale(0.7);
+      transition: opacity .3s, transform .3s;
+    }
+    #scroll-top.visible { opacity: 1; transform: scale(1); }
+    #scroll-top:hover { transform: scale(1.1); }
+
+    /* ── Footer ────────────────────────────────────────────────────── */
+    footer {
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 60px 0 28px;
+      margin-top: 80px;
+    }
+    .footer-grid {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px; margin-bottom: 48px;
+    }
+    .footer-brand p {
+      font-size: 14px; color: var(--muted);
+      line-height: 1.7; margin-top: 12px; max-width: 240px;
+    }
+    .footer-col h4 { font-size: 13px; font-weight: 700; letter-spacing: .5px; margin-bottom: 16px; text-transform: uppercase; color: var(--muted); }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col a {
+      color: rgba(200,215,255,0.5); text-decoration: none;
+      font-size: 14px; transition: color .2s;
+    }
+    .footer-col a:hover { color: var(--text); }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 24px; text-align: center;
+      font-size: 13px; color: rgba(200,215,255,0.3);
+    }
+    .footer-bottom strong { color: rgba(200,215,255,0.55); }
+
+    /* ── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+      .posture-viz { min-height: 420px; }
+      .why-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2,1fr); gap: 24px; }
+      .testi-grid { grid-template-columns: 1fr 1fr; }
+      .testi-stats-row { grid-template-columns: repeat(2,1fr); }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      nav { display: none; }
+      .hamburger { display: flex; }
+      header .btn-primary { display: none; }
+      .section { min-height: 100vh; padding: 70px 0; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .steps-line { display: none; }
+      .testi-grid { grid-template-columns: 1fr; }
+      .testi-stats-row { grid-template-columns: 1fr 1fr; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .cta-icons { font-size: 36px; }
+      .stats-banner { padding: 40px 24px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .hero-stats { flex-wrap: wrap; gap: 20px; }
+    }
+    @media (max-width: 480px) {
+      .container { padding: 0 16px; }
+      .hero { padding: 130px 0 70px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Fixed background layers -->
+<div class="page-bg"></div>
+<div class="grid-pattern"></div>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+<header id="header">
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+      <div class="logo-icon">🧍</div>
+      <span class="logo-text">PostureGuard</span>
+    </a>
+
+    <nav>
+      <a href="#why">Why Us</a>
+      <a href="#how">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="#testimonials">Testimonials</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <a href="#" class="btn btn-primary" onclick="launchApp(event)">
+      <span>▶</span> Get Started
+    </a>
+
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <div class="mobile-nav" id="mobile-nav">
+    <a href="#why"          onclick="closeMobileNav()">Why Us</a>
+    <a href="#how"          onclick="closeMobileNav()">How It Works</a>
+    <a href="#features"     onclick="closeMobileNav()">Features</a>
+    <a href="#testimonials" onclick="closeMobileNav()">Testimonials</a>
+    <a href="#contact"      onclick="closeMobileNav()">Contact</a>
+    <a href="#" class="btn btn-primary" onclick="launchApp(event); closeMobileNav();">▶ Get Started</a>
+  </div>
+</header>
+
+<!-- ── HERO ────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+
+      <!-- Left content -->
+      <div class="reveal left">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          AI Health Monitoring · v1.0
+        </div>
+
+        <h1>
+          Sit Right.<br/>
+          <em>Stay Alert.</em><br/>
+          Work Better.
+        </h1>
+
+        <p class="hero-desc">
+          PostureGuard uses MediaPipe AI to monitor your posture and drowsiness in real time — alerting you the instant you slouch, crane your neck, or start to doze off.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#" class="btn btn-primary btn-lg" onclick="launchApp(event); return false;">
+            <span>▶</span> Get Started Free
+          </a>
+          <a href="#how" class="btn btn-outline">
+            See How It Works →
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div>
+            <div class="stat-num">Real-Time</div>
+            <div class="stat-label">AI Detection</div>
+          </div>
+          <div>
+            <div class="stat-num">99%</div>
+            <div class="stat-label">Accuracy</div>
+          </div>
+          <div>
+            <div class="stat-num">4.9 ★</div>
+            <div class="stat-label">User Rating</div>
+          </div>
+          <div>
+            <div class="stat-num">0ms</div>
+            <div class="stat-label">Avg Alert Lag</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right — Posture Visualizer -->
+      <div class="reveal right" style="transition-delay:.15s">
+        <div class="posture-viz">
+          <div class="viz-topbar">
+            <div class="viz-dot dot-r"></div>
+            <div class="viz-dot dot-y"></div>
+            <div class="viz-dot dot-g"></div>
+            <span class="viz-title">PostureGuard — Live Monitor</span>
+          </div>
+          <div class="viz-body">
+
+            <!-- Animated stick figure -->
+            <div class="figure-container">
+              <span class="posture-label">✓ GOOD POSTURE</span>
+              <svg class="figure-svg" viewBox="0 0 200 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Head -->
+                <circle class="head-circle" cx="100" cy="38" r="28"/>
+                <!-- Eyes (blinking) -->
+                <ellipse class="eye-l" cx="90" cy="35" rx="5" ry="5" fill="rgba(79,172,254,0.6)" style="animation:blinkEye 4s infinite"/>
+                <ellipse class="eye-r" cx="110" cy="35" rx="5" ry="5" fill="rgba(79,172,254,0.6)" style="animation:blinkEye 4s infinite .2s"/>
+                <!-- Neck -->
+                <line class="neck-line" x1="100" y1="66" x2="100" y2="90" stroke-width="4" stroke-linecap="round"/>
+                <!-- Shoulders -->
+                <line class="body-line" x1="55" y1="100" x2="145" y2="100" stroke-width="3.5" stroke-linecap="round" stroke="rgba(200,215,255,0.5)"/>
+                <!-- Spine -->
+                <line class="spine-line" x1="100" y1="100" x2="100" y2="175" stroke-width="4" stroke-linecap="round"/>
+                <!-- Arms -->
+                <line class="body-line" x1="55" y1="100" x2="35" y2="150" stroke-width="3" stroke-linecap="round" stroke="rgba(200,215,255,0.4)"/>
+                <line class="body-line" x1="145" y1="100" x2="165" y2="150" stroke-width="3" stroke-linecap="round" stroke="rgba(200,215,255,0.4)"/>
+                <!-- Forearms -->
+                <line class="body-line" x1="35" y1="150" x2="28" y2="190" stroke-width="2.5" stroke-linecap="round" stroke="rgba(200,215,255,0.3)"/>
+                <line class="body-line" x1="165" y1="150" x2="172" y2="190" stroke-width="2.5" stroke-linecap="round" stroke="rgba(200,215,255,0.3)"/>
+                <!-- Hips -->
+                <line class="body-line" x1="72" y1="175" x2="128" y2="175" stroke-width="3" stroke-linecap="round" stroke="rgba(200,215,255,0.45)"/>
+                <!-- Legs -->
+                <line class="body-line" x1="80" y1="175" x2="72" y2="240" stroke-width="3" stroke-linecap="round" stroke="rgba(200,215,255,0.4)"/>
+                <line class="body-line" x1="120" y1="175" x2="128" y2="240" stroke-width="3" stroke-linecap="round" stroke="rgba(200,215,255,0.4)"/>
+                <!-- Chair hint -->
+                <rect x="48" y="168" width="104" height="10" rx="5" fill="rgba(200,215,255,0.06)" stroke="rgba(200,215,255,0.12)" stroke-width="1"/>
+                <!-- Landmark dots -->
+                <circle cx="100" cy="90" r="4" fill="rgba(79,172,254,0.7)"/>
+                <circle cx="55"  cy="100" r="4" fill="rgba(79,172,254,0.7)"/>
+                <circle cx="145" cy="100" r="4" fill="rgba(79,172,254,0.7)"/>
+                <circle cx="100" cy="175" r="4" fill="rgba(79,172,254,0.5)"/>
+              </svg>
+            </div>
+
+            <!-- Metric bars -->
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-header">
+                  <div class="metric-dot" style="background:var(--blue)"></div>
+                  <span class="metric-name">NECK ANGLE</span>
+                </div>
+                <div class="metric-val text-grad">165°</div>
+                <div class="metric-bar"><div class="metric-fill angle-fill"></div></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-header">
+                  <div class="metric-dot" style="background:var(--green)"></div>
+                  <span class="metric-name">EYE ALERT</span>
+                </div>
+                <div class="metric-val" style="color:var(--green)">0.28</div>
+                <div class="metric-bar"><div class="metric-fill ear-fill"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY CHOOSE ────────────────────────────────────────────────────── -->
+<section id="why" class="section">
+  <div class="container">
+    <div class="why-grid">
+
+      <!-- Left — Feature list -->
+      <div class="reveal left">
+        <div class="section-eyebrow">Why PostureGuard</div>
+        <h2 class="section-title">Your Body Deserves<br/><em class="text-grad">AI-Level Care</em></h2>
+        <p style="color:var(--muted); font-size:15px; margin-bottom:36px; line-height:1.75;">
+          Long hours at a desk silently damage your health. PostureGuard sits in the background, watching your posture and eye activity so you don't have to think about it.
+        </p>
+        <div class="feature-list">
+          <div class="feature-item">
+            <div class="feature-icon">⚡</div>
+            <div>
+              <div class="feature-title">Instant Alerts</div>
+              <div class="feature-desc">Receive gentle, moderate, or severe alerts — voice + desktop notifications triggered within seconds of bad posture or closed eyes.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">🎯</div>
+            <div>
+              <div class="feature-title">Precision AI Detection</div>
+              <div class="feature-desc">Powered by MediaPipe Pose & Face Landmarker — tracks 33 body landmarks and 468 face points for sub-degree neck angle accuracy.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">🔒</div>
+            <div>
+              <div class="feature-title">100% Private & Offline</div>
+              <div class="feature-desc">All processing runs locally on your PC. Zero frames, data, or biometrics ever leave your computer.</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">📊</div>
+            <div>
+              <div class="feature-title">Session Analytics</div>
+              <div class="feature-desc">Track your posture score over days and weeks with interactive charts. See what times of day you slouch most.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right — UI Mockup -->
+      <div class="reveal right" style="transition-delay:.15s">
+        <div class="ui-mockup">
+          <div class="mock-bar">
+            <div class="viz-dot dot-r"></div>
+            <div class="viz-dot dot-y"></div>
+            <div class="viz-dot dot-g"></div>
+            <div class="mock-pill" style="flex:1; margin-left:12px;"></div>
+            <div class="mock-pill" style="width:60px; margin-left:8px;"></div>
+          </div>
+          <div class="mock-body">
+            <div class="mock-row">
+              <!-- Camera feed mock -->
+              <div class="mock-cam">
+                <span class="cam-icon">📷</span>
+                <div class="pose-overlay">
+                  <svg viewBox="0 0 100 130" fill="none">
+                    <circle cx="50" cy="20" r="14" stroke="rgba(79,172,254,0.4)" stroke-width="1.5"/>
+                    <line x1="50" y1="34" x2="50" y2="55" stroke="rgba(79,172,254,0.5)" stroke-width="1.5"/>
+                    <line x1="24" y1="60" x2="76" y2="60" stroke="rgba(79,172,254,0.4)" stroke-width="1.5"/>
+                    <line x1="50" y1="60" x2="50" y2="95" stroke="rgba(79,172,254,0.5)" stroke-width="1.5"/>
+                    <circle cx="50" cy="55" r="3" fill="rgba(79,172,254,0.7)"/>
+                    <circle cx="24" cy="60" r="3" fill="rgba(79,172,254,0.7)"/>
+                    <circle cx="76" cy="60" r="3" fill="rgba(79,172,254,0.7)"/>
+                  </svg>
+                </div>
+              </div>
+              <!-- Side panel -->
+              <div class="mock-panel">
+                <div class="mock-metric">
+                  <div class="mock-metric-label">POSTURE</div>
+                  <div class="mock-metric-val good" style="animation: statusValCycle 8s infinite">GOOD</div>
+                </div>
+                <div class="mock-metric">
+                  <div class="mock-metric-label">NECK °</div>
+                  <div class="mock-metric-val normal">165°</div>
+                </div>
+                <div class="mock-metric">
+                  <div class="mock-metric-label">SESSION</div>
+                  <div class="mock-metric-val" style="color:var(--muted);font-size:14px">1h 32m</div>
+                </div>
+                <div class="mock-metric">
+                  <div class="mock-metric-label">SCORE</div>
+                  <div class="mock-metric-val good">92%</div>
+                </div>
+              </div>
+            </div>
+            <!-- Alert bar -->
+            <div class="mock-alert">
+              <div class="alert-dot"></div>
+              <div>
+                <div class="alert-text-main">Posture Warning</div>
+                <div class="alert-text-sub">Neck angle dropped below threshold — sit up straight</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────────────────────── -->
+<section id="how" class="section how-bg">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-eyebrow">How It Works</div>
+      <h2 class="section-title">Up &amp; Running in<br/><em class="text-grad">3 Simple Steps</em></h2>
+      <p class="section-sub">No subscriptions, no cloud, no complexity. Just install, calibrate, and let PostureGuard do the rest.</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="steps-line"></div>
+
+      <div class="step-card reveal" style="transition-delay:.0s">
+        <div class="step-num">1</div>
+        <span class="step-icon">💻</span>
+        <div class="step-title">Install &amp; Launch</div>
+        <div class="step-desc">Run the PostureGuard installer on Windows. No Python knowledge needed — everything is bundled and ready to go in seconds.</div>
+      </div>
+
+      <div class="step-card reveal" style="transition-delay:.15s">
+        <div class="step-num">2</div>
+        <span class="step-icon">🎯</span>
+        <div class="step-title">Calibrate in 30s</div>
+        <div class="step-desc">Sit in your ideal posture and press Calibrate. The AI learns your baseline neck angle and eye openness in just 30 seconds.</div>
+      </div>
+
+      <div class="step-card reveal" style="transition-delay:.3s">
+        <div class="step-num">3</div>
+        <span class="step-icon">🛡️</span>
+        <div class="step-title">Work, Protected</div>
+        <div class="step-desc">PostureGuard silently monitors in the background. Alerts fire only when needed. Review your daily score in the dashboard.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES GRID ─────────────────────────────────────────────────── -->
+<section id="features" class="section">
+  <div class="container">
+    <div class="text-center reveal" style="margin-bottom:56px">
+      <div class="section-eyebrow">Core Features</div>
+      <h2 class="section-title">Everything You Need to<br/><em class="text-grad">Work Healthier</em></h2>
+    </div>
+
+    <div class="stats-banner reveal">
+      <div class="stats-grid">
+        <div class="stats-item">
+          <div class="stats-num">4</div>
+          <div class="stats-label">Posture States Detected</div>
+        </div>
+        <div class="stats-item">
+          <div class="stats-num">30 fps</div>
+          <div class="stats-label">Real-Time Analysis</div>
+        </div>
+        <div class="stats-item">
+          <div class="stats-num">3-Level</div>
+          <div class="stats-label">Smart Alert System</div>
+        </div>
+        <div class="stats-item">
+          <div class="stats-num">100%</div>
+          <div class="stats-label">On-Device Privacy</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature cards row -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; margin-top:36px;">
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.0s">
+        <div style="font-size:36px; margin-bottom:14px">🧍</div>
+        <div class="step-title" style="font-size:17px">Posture Detection</div>
+        <div class="step-desc">Identifies Good, Slouching, Forward Head &amp; Neck Strain posture states using 3D skeletal landmarks via MediaPipe Pose.</div>
+      </div>
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.1s">
+        <div style="font-size:36px; margin-bottom:14px">👁️</div>
+        <div class="step-title" style="font-size:17px">Drowsiness Monitor</div>
+        <div class="step-desc">Tracks Eye Aspect Ratio (EAR) from 468 face landmarks. Detects tired eyes, slow blinks, and microsleeps in real time.</div>
+      </div>
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.2s">
+        <div style="font-size:36px; margin-bottom:14px">🔔</div>
+        <div class="step-title" style="font-size:17px">Smart Alerts</div>
+        <div class="step-desc">Three-tier alert system (Gentle → Moderate → Severe) with desktop notifications and Windows SAPI voice alerts. Snooze support included.</div>
+      </div>
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.3s">
+        <div style="font-size:36px; margin-bottom:14px">📈</div>
+        <div class="step-title" style="font-size:17px">Dashboard &amp; Analytics</div>
+        <div class="step-desc">Interactive Matplotlib charts show posture scores by hour and day. Export session data and track your long-term improvement.</div>
+      </div>
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.4s">
+        <div style="font-size:36px; margin-bottom:14px">⚙️</div>
+        <div class="step-title" style="font-size:17px">Fully Configurable</div>
+        <div class="step-desc">Five-tab settings dialog lets you tune every threshold, alert volume, camera source, processing confidence, and UI theme.</div>
+      </div>
+
+      <div class="step-card reveal" style="text-align:left; transition-delay:.5s">
+        <div style="font-size:36px; margin-bottom:14px">🌙</div>
+        <div class="step-title" style="font-size:17px">Dark &amp; Light Themes</div>
+        <div class="step-desc">A polished PyQt5 UI built for long sessions, with a toggle between dark (OLED-friendly) and light themes for any environment.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ──────────────────────────────────────────────────── -->
+<section id="testimonials" class="section testimonials-bg">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-eyebrow">Testimonials</div>
+      <h2 class="section-title">What Users Are<br/><em class="text-grad">Saying</em></h2>
+      <p class="section-sub">From remote workers to students — PostureGuard has helped thousands build healthier desk habits.</p>
+    </div>
+
+    <div class="testi-grid">
+
+      <div class="testi-card reveal" style="transition-delay:.0s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">AR</div>
+            <div>
+              <div class="testi-name">Ali Raza</div>
+              <div class="testi-role">Software Engineer · Karachi</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"I had chronic neck pain for months. Two weeks using PostureGuard and I'm already sitting straighter without even thinking about it. The voice alerts are firm but not annoying."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">120+ hrs</div>
+            <div class="testi-stat-label">Monitored</div>
+          </div>
+          <span class="testi-badge">Power User</span>
+        </div>
+      </div>
+
+      <div class="testi-card reveal" style="transition-delay:.1s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">SN</div>
+            <div>
+              <div class="testi-name">Sara Nawaz</div>
+              <div class="testi-role">Medical Student · Lahore</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"Study sessions go 4+ hours. The drowsiness monitor catches me falling asleep before I lose notes. The calibration wizard took literally 30 seconds — brilliant UX."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">200+ hrs</div>
+            <div class="testi-stat-label">Monitored</div>
+          </div>
+          <span class="testi-badge">Top Reviewer</span>
+        </div>
+      </div>
+
+      <div class="testi-card reveal" style="transition-delay:.2s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">KH</div>
+            <div>
+              <div class="testi-name">Kamran Hussain</div>
+              <div class="testi-role">UX Designer · Islamabad</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"The dashboard is incredible — I can see exactly which hours I start to slouch. I optimised my break schedule around the data. Posture score went from 65 to 89 in a month."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">89%</div>
+            <div class="testi-stat-label">Posture Score</div>
+          </div>
+          <span class="testi-badge">Power User</span>
+        </div>
+      </div>
+
+      <div class="testi-card reveal" style="transition-delay:.3s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">FQ</div>
+            <div>
+              <div class="testi-name">Fatima Qureshi</div>
+              <div class="testi-role">Data Analyst · Multan</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"Completely offline — no privacy worries at all. The fact that nothing leaves my PC is a deal-maker. Alert thresholds are fully customisable which I love as an analyst."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">95 hrs</div>
+            <div class="testi-stat-label">Monitored</div>
+          </div>
+          <span class="testi-badge">Privacy Fan</span>
+        </div>
+      </div>
+
+      <div class="testi-card reveal" style="transition-delay:.4s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">OA</div>
+            <div>
+              <div class="testi-name">Omar Akhtar</div>
+              <div class="testi-role">Freelancer · Faisalabad</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"Night owl coder here. The drowsiness alerts have saved my code quality more times than I can count. Heads-up display is clean and never gets in my way."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">180+ hrs</div>
+            <div class="testi-stat-label">Monitored</div>
+          </div>
+          <span class="testi-badge">Night Owl</span>
+        </div>
+      </div>
+
+      <div class="testi-card reveal" style="transition-delay:.5s">
+        <div class="testi-header">
+          <div class="testi-user">
+            <div class="testi-avatar">ZM</div>
+            <div>
+              <div class="testi-name">Zara Malik</div>
+              <div class="testi-role">Content Creator · Peshawar</div>
+            </div>
+          </div>
+          <div class="testi-stars">★★★★★</div>
+        </div>
+        <p class="testi-quote">"I edit video for 6 hours straight and always ended up with a sore back. PostureGuard corrected my forward-head habit in two weeks. The snooze feature is a lifesaver during renders."</p>
+        <div class="testi-footer">
+          <div>
+            <div class="testi-stat-val">145 hrs</div>
+            <div class="testi-stat-label">Monitored</div>
+          </div>
+          <span class="testi-badge">Creator</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Stats row -->
+    <div class="testi-stats-row">
+      <div class="testi-stats-card reveal" style="transition-delay:.6s">
+        <span class="testi-stats-icon">👥</span>
+        <div class="testi-stats-num b">10K+</div>
+        <div class="testi-stats-lbl">Active Users</div>
+      </div>
+      <div class="testi-stats-card reveal" style="transition-delay:.7s">
+        <span class="testi-stats-icon">⭐</span>
+        <div class="testi-stats-num v">4.9★</div>
+        <div class="testi-stats-lbl">Average Rating</div>
+      </div>
+      <div class="testi-stats-card reveal" style="transition-delay:.8s">
+        <span class="testi-stats-icon">✅</span>
+        <div class="testi-stats-num b">97%</div>
+        <div class="testi-stats-lbl">Satisfaction Rate</div>
+      </div>
+      <div class="testi-stats-card reveal" style="transition-delay:.9s">
+        <span class="testi-stats-icon">⏱️</span>
+        <div class="testi-stats-num v">1M+</div>
+        <div class="testi-stats-lbl">Hours Monitored</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── CONTACT  ───────────────────────────────────────────────────────── -->
+<section id="contact" class="section">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-eyebrow">Get in Touch</div>
+      <h2 class="section-title">Have a Question?<br/><em class="text-grad">We're Here to Help</em></h2>
+      <p class="section-sub">Bug reports, feature requests, or just want to say hi — drop us a message and we'll get back to you.</p>
+    </div>
+
+    <div class="contact-grid">
+
+      <!-- Left info card -->
+      <div class="contact-info reveal left">
+        <div>
+          <h3>Contact Info</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            PostureGuard is built by a small passionate team. We read every message and respond within 24 hours.
+          </p>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-icon">📧</div>
+          <div>
+            <div class="contact-label">Email</div>
+            <div class="contact-value">postureguard@gmail.com</div>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-icon">🐙</div>
+          <div>
+            <div class="contact-label">GitHub</div>
+            <div class="contact-value">github.com/postureguard</div>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-icon">🪟</div>
+          <div>
+            <div class="contact-label">Platform</div>
+            <div class="contact-value">Windows 10/11 · v1.0.0</div>
+          </div>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-icon">⚡</div>
+          <div>
+            <div class="contact-label">Powered By</div>
+            <div class="contact-value">MediaPipe · OpenCV · PyQt5</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right form -->
+      <div class="contact-form reveal right" style="transition-delay:.15s">
+        <form id="contact-form" onsubmit="handleFormSubmit(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <input type="text" name="name" placeholder="Full Name" required />
+            </div>
+            <div class="form-group">
+              <input type="email" name="email" placeholder="Email Address" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <input type="text" name="subject" placeholder="Subject (e.g. Bug Report, Feature Request)" required />
+          </div>
+          <div class="form-group">
+            <textarea name="message" placeholder="Your message..." required></textarea>
+          </div>
+          <div id="form-status" class="form-status"></div>
+          <button type="submit" class="btn btn-primary form-submit" id="form-btn">
+            <span id="form-btn-text">Send Message ✈️</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- CTA Banner -->
+    <div class="cta-banner reveal">
+      <div class="cta-icons">
+        <span class="cta-icon">🧍</span>
+        <span class="cta-icon">🛡️</span>
+        <span class="cta-icon">💪</span>
+      </div>
+      <h2>Ready to Guard<br/><em class="text-grad">Your Posture?</em></h2>
+      <p>Download PostureGuard for free. No subscriptions, no accounts, no data collection — just a healthier you.</p>
+      <div class="cta-actions">
+        <a href="#" class="btn btn-primary btn-lg" onclick="launchApp(event); return false;">
+          ▶ Launch PostureGuard
+        </a>
+        <a href="#how" class="btn btn-outline">
+          Learn More →
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SCROLL TOP ────────────────────────────────────────────────────── -->
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Scroll to top">↑</button>
+
+<!-- ── FOOTER ────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="logo" href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" style="text-decoration:none; display:inline-flex; align-items:center; gap:10px; margin-bottom:4px;">
+          <div class="logo-icon">🧍</div>
+          <span class="logo-text">PostureGuard</span>
+        </a>
+        <p>AI-powered posture &amp; drowsiness monitoring for Windows. Built with MediaPipe, OpenCV, and PyQt5.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#why">Features</a></li>
+          <li><a href="#how">How It Works</a></li>
+          <li><a href="#" onclick="launchApp(event);return false;">Launch App</a></li>
+          <li><a href="#contact">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="#contact">Contact Us</a></li>
+          <li><a href="#contact">Bug Reports</a></li>
+          <li><a href="#contact">Feature Requests</a></li>
+          <li><a href="#contact">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Use</a></li>
+          <li><a href="#">License (MIT)</a></li>
+          <li><a href="#">Open Source</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 PostureGuard · v1.0.0 · Made with ❤️ for healthier desk workers · Powered by <strong>MediaPipe &amp; OpenCV</strong></p>
+    </div>
+  </div>
+</footer>
+
+<!-- ── SCRIPTS ───────────────────────────────────────────────────────── -->
+<style>
+  @keyframes blinkEye {
+    0%,93%,100% { ry:5px; }
+    95%,98%     { ry:1px; }
+  }
+  @keyframes statusValCycle {
+    0%,30%  { color:var(--green); }
+    33%,63% { color:var(--red); }
+    66%,96% { color:var(--yellow); }
+    100%    { color:var(--green); }
+  }
+  .eye-l, .eye-r { animation: blinkEye 4s infinite; }
+  .eye-r { animation-delay: .15s; }
+</style>
+
+<script>
+  /* ── Header scroll effect ── */
+  const header = document.getElementById('header');
+  const scrollTopBtn = document.getElementById('scroll-top');
+
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 40) {
+      header.classList.add('scrolled');
+    } else {
+      header.classList.remove('scrolled');
+    }
+
+    if (window.scrollY > 300) {
+      scrollTopBtn.classList.add('visible');
+    } else {
+      scrollTopBtn.classList.remove('visible');
+    }
+  });
+
+  /* ── Mobile menu ── */
+  const hamburger  = document.getElementById('hamburger');
+  const mobileNav  = document.getElementById('mobile-nav');
+
+  hamburger.addEventListener('click', () => {
+    const open = mobileNav.style.display === 'flex';
+    mobileNav.style.display = open ? 'none' : 'flex';
+    hamburger.classList.toggle('open', !open);
+  });
+
+  function closeMobileNav() {
+    mobileNav.style.display = 'none';
+    hamburger.classList.remove('open');
+  }
+
+  /* ── Scroll reveal ── */
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer  = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const delay = parseFloat(e.target.style.transitionDelay || '0') * 1000;
+          setTimeout(() => e.target.classList.add('visible'), delay > 0 ? 0 : 0);
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+  );
+  revealEls.forEach(el => observer.observe(el));
+
+  /* ── Posture label cycling ── */
+  const labels  = ['✓ GOOD POSTURE', '⚠ SLOUCHING', '⚠ FORWARD HEAD', '✓ GOOD POSTURE'];
+  const labelEl = document.querySelector('.posture-label');
+  if (labelEl) {
+    let idx = 0;
+    setInterval(() => {
+      idx = (idx + 1) % labels.length;
+      labelEl.textContent = labels[idx];
+    }, 2667);
+  }
+
+  /* ── Neck angle value cycling ── */
+  const neckVals = ['165°', '108°', '142°', '165°'];
+  const neckEl   = document.querySelector('.metric-val.text-grad');
+  if (neckEl) {
+    let ni = 0;
+    setInterval(() => {
+      ni = (ni + 1) % neckVals.length;
+      neckEl.textContent = neckVals[ni];
+    }, 2667);
+  }
+
+  /* ── Contact form ── */
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const btn     = document.getElementById('form-btn');
+    const btnText = document.getElementById('form-btn-text');
+    const status  = document.getElementById('form-status');
+    const form    = document.getElementById('contact-form');
+
+    btnText.textContent = 'Sending…';
+    btn.disabled = true;
+
+    // Simulate async submission (replace with real fetch to your backend)
+    setTimeout(() => {
+      status.textContent = '✓ Thank you! Your message has been sent. We\'ll reply within 24 hours.';
+      status.className   = 'form-status success';
+      form.reset();
+      btnText.textContent = 'Send Message ✈️';
+      btn.disabled = false;
+
+      setTimeout(() => {
+        status.className = 'form-status';
+      }, 6000);
+    }, 1200);
+  }
+
+  /* ── Bridge port from URL param ── */
+  const _port = new URLSearchParams(window.location.search).get('port');
+
+  /* ── Launch app via bridge (same-origin relative URL) ── */
+  function launchApp(e) {
+    if (e) { e.preventDefault(); }
+    const btn = (e && (e.currentTarget || e.target)) || null;
+    if (btn && btn.tagName) {
+      btn.innerHTML = '⏳ Starting…';
+      btn.style.pointerEvents = 'none';
+    }
+
+    fetch('/launch')
+      .then(r => r.json())
+      .then(() => {
+        // Fade the whole page to black then try to close the tab
+        document.body.style.transition = 'opacity 0.5s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => {
+          try { window.close(); } catch(_) {}
+          // If browser blocks close, show a plain message instead
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#06090f;font-family:Inter,sans-serif;color:rgba(200,215,255,0.4);font-size:15px;">PostureGuard is launching… you can close this tab.</div>';
+          document.body.style.opacity = '1';
+        }, 500);
+      })
+      .catch(() => {
+        alert('Could not connect to PostureGuard.\nPlease run: python main.py');
+        if (btn && btn.tagName) {
+          btn.innerHTML = '▶ Get Started';
+          btn.style.pointerEvents = '';
+        }
+      });
+  }
+
+  /* ── Keep handleDownload as alias for backwards compatibility ── */
+  function handleDownload(e) { launchApp(e || window.event); }
+
+  /* ── Smooth anchor scroll (with header offset) ── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const href = a.getAttribute('href');
+      if (href === '#') return;
+      const target = document.querySelector(href);
+      if (target) {
+        e.preventDefault();
+        closeMobileNav();
+        const top = target.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    });
+  });
+</script>
+</body>
+</html>

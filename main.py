@@ -7,6 +7,10 @@ import sys
 import json
 import logging
 import logging.handlers
+import socket
+import threading
+import http.server
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -17,7 +21,7 @@ if _LIB_DIR.exists():
     sys.path.insert(0, str(_LIB_DIR))
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 from src.data_manager import DataManager
 from src.ui.main_window import MainWindow
@@ -98,6 +102,7 @@ def main() -> int:
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)   # stay alive while waiting for browser
     app.setApplicationName(config.get("app_name", "PostureGuard"))
     app.setApplicationVersion(config.get("version", "1.0.0"))
     app.setOrganizationName("PostureGuard")
@@ -114,6 +119,21 @@ def main() -> int:
 
     window_ref = []  # keep references alive
 
+    def launch_qt_app():
+        """Show the PyQt5 landing window, which leads to the main window."""
+        try:
+            landing = LandingWindow()
+            landing.get_started.connect(launch_main)
+            window_ref.append(landing)
+            landing.show()
+            # Raise after one event-loop tick so content renders before coming to front
+            QTimer.singleShot(50, lambda: (landing.raise_(), landing.activateWindow()))
+            logger.info("Qt landing window shown")
+        except Exception as exc:
+            logger.critical("Failed to show landing window: %s", exc, exc_info=True)
+            QMessageBox.critical(None, "Startup Error", f"Failed to start:\n{exc}")
+            app.quit()
+
     def launch_main():
         """Open the main monitoring window."""
         try:
@@ -126,12 +146,77 @@ def main() -> int:
             QMessageBox.critical(None, "Startup Error", f"Failed to start:\n{exc}")
             app.quit()
 
-    # Show landing window first; main window opens when user clicks Get Started
-    landing = LandingWindow()
-    landing.get_started.connect(launch_main)
-    window_ref.append(landing)
-    landing.show()
-    logger.info("Landing window shown")
+    # ── Local HTTP bridge ────────────────────────────────────────────────────
+    # The HTML landing page calls /launch when the user clicks "Get Started".
+    # A QTimer polls the event and opens the Qt app.
+    launch_event = threading.Event()
+    landing_html = root / "docs" / "landing.html"
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/launch":
+                launch_event.set()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}')
+            elif self.path in ("/", "/index.html"):
+                html_bytes = landing_html.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(html_bytes)))
+                self.end_headers()
+                self.wfile.write(html_bytes)
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, *_):
+            pass  # suppress console noise
+
+    # ── Find a free port starting at 5000 ───────────────────────────────────
+    def _find_port(start=5000, tries=10):
+        for p in range(start, start + tries):
+            try:
+                with socket.socket() as s:
+                    s.bind(("", p))
+                return p
+            except OSError:
+                continue
+        return start  # last resort — let OS raise if truly unavailable
+
+    port = _find_port()
+    bridge = ThreadingHTTPServer(("localhost", port), _Handler)
+    threading.Thread(target=bridge.serve_forever, daemon=True).start()
+
+    url = f"http://127.0.0.1:{port}/"
+
+    # ── Print clear URL banner ───────────────────────────────────────────────
+    banner = (
+        "\n"
+        "  ╔══════════════════════════════════════════════╗\n"
+        f"  ║  PostureGuard  →  {url:<27}║\n"
+        "  ║  Open the URL above in Edge / Chrome        ║\n"
+        "  ║  Click  Get Started  to launch the app      ║\n"
+        "  ╚══════════════════════════════════════════════╝\n"
+    )
+    print(banner, flush=True)
+    logger.info("Landing page available at %s", url)
+
+    # ── If no HTML page, skip straight to Qt ────────────────────────────────
+    if not landing_html.exists():
+        logger.warning("landing.html not found, launching Qt directly")
+        launch_qt_app()
+
+    # ── Poll for launch signal from browser ─────────────────────────────────
+    def _check_launch():
+        if launch_event.is_set():
+            _poll_timer.stop()
+            launch_qt_app()
+
+    _poll_timer = QTimer()
+    _poll_timer.timeout.connect(_check_launch)
+    _poll_timer.start(150)  # check every 150 ms
 
     exit_code = app.exec_()
     logger.info("PostureGuard exiting with code %d", exit_code)
