@@ -36,6 +36,13 @@ class MongoDBManager:
         analytics_snapshots– daily analytics rollups
     """
 
+    # Only save to MongoDB on state transitions or problem events.
+    # Periodic "good" snapshots are saved at most once per this interval.
+    _GOOD_STATE_SNAPSHOT_INTERVAL = timedelta(minutes=5)
+
+    _BAD_POSTURE_STATUSES = {"SLOUCHING", "FORWARD_HEAD", "NECK_STRAIN"}
+    _BAD_DROWSINESS_STATUSES = {"TIRED", "DROWSY"}
+
     def __init__(self, uri: str, db_name: str = "PostureGuard", user_id: str = None):
         self._uri = uri
         self._db_name = db_name
@@ -43,6 +50,12 @@ class MongoDBManager:
         self._client: Optional[Any] = None
         self._db: Optional[Any] = None
         self._connected = False
+
+        # State tracking to reduce MongoDB writes
+        self._last_posture_status: Optional[str] = None
+        self._last_drowsiness_status: Optional[str] = None
+        self._last_posture_save: Optional[datetime] = None
+        self._last_drowsiness_save: Optional[datetime] = None
 
     # ------------------------------------------------------------------ init
     def connect(self) -> bool:
@@ -141,6 +154,11 @@ class MongoDBManager:
         """Store a new session. Returns the MongoDB _id as string."""
         if not self._connected:
             return None
+        # Reset state tracking for the new session
+        self._last_posture_status = None
+        self._last_drowsiness_status = None
+        self._last_posture_save = None
+        self._last_drowsiness_save = None
         try:
             doc = {
                 "user_id": self._user_id,
@@ -184,40 +202,94 @@ class MongoDBManager:
             logger.warning("Failed to end MongoDB session: %s", exc)
 
     # --------------------------------------------------------- posture events
+    def _should_save_posture(self, status: str) -> bool:
+        """Decide whether this posture reading is worth persisting.
+
+        Saves on:
+        - Any bad-posture event (SLOUCHING, FORWARD_HEAD, NECK_STRAIN)
+        - State transitions (e.g. GOOD → SLOUCHING or SLOUCHING → GOOD)
+        - Periodic "GOOD" snapshots (at most every 5 min) so analytics
+          still reflect sustained good posture.
+        """
+        now = datetime.utcnow()
+        # Always save bad posture
+        if status in self._BAD_POSTURE_STATUSES:
+            return True
+        # Save state transitions
+        if status != self._last_posture_status:
+            return True
+        # Periodic good-state snapshot
+        if self._last_posture_save is None or (now - self._last_posture_save) >= self._GOOD_STATE_SNAPSHOT_INTERVAL:
+            return True
+        return False
+
     def log_posture_event(self, local_session_id: int, event_data: dict) -> None:
-        """Store a posture event for analytics."""
+        """Store a posture event for analytics (only important events)."""
         if not self._connected:
             return
+        status = event_data.get("status", "")
+        if not self._should_save_posture(status):
+            return
         try:
+            now = datetime.utcnow()
+            is_transition = (status != self._last_posture_status)
             doc = {
                 "user_id": self._user_id,
                 "session_id": local_session_id,
-                "timestamp": datetime.utcnow(),
-                "event_type": event_data.get("status"),
+                "timestamp": now,
+                "event_type": status,
                 "neck_angle": event_data.get("neck_angle"),
                 "shoulder_alignment": event_data.get("shoulder_alignment"),
                 "confidence": event_data.get("confidence"),
+                "is_transition": is_transition,
             }
             self._db.posture_events.insert_one(doc)
+            self._last_posture_status = status
+            self._last_posture_save = now
         except Exception as exc:
             logger.warning("Failed to log posture event to MongoDB: %s", exc)
 
     # ------------------------------------------------------ drowsiness events
+    def _should_save_drowsiness(self, status: str) -> bool:
+        """Decide whether this drowsiness reading is worth persisting.
+
+        Saves on:
+        - Any drowsiness event (TIRED, DROWSY)
+        - State transitions (e.g. ALERT → DROWSY or DROWSY → ALERT)
+        - Periodic "ALERT" snapshots (at most every 5 min).
+        """
+        now = datetime.utcnow()
+        if status in self._BAD_DROWSINESS_STATUSES:
+            return True
+        if status != self._last_drowsiness_status:
+            return True
+        if self._last_drowsiness_save is None or (now - self._last_drowsiness_save) >= self._GOOD_STATE_SNAPSHOT_INTERVAL:
+            return True
+        return False
+
     def log_drowsiness_event(self, local_session_id: int, event_data: dict) -> None:
-        """Store a drowsiness event for analytics."""
+        """Store a drowsiness event for analytics (only important events)."""
         if not self._connected:
             return
+        status = event_data.get("status", "ALERT")
+        if not self._should_save_drowsiness(status):
+            return
         try:
+            now = datetime.utcnow()
+            is_transition = (status != self._last_drowsiness_status)
             doc = {
                 "user_id": self._user_id,
                 "session_id": local_session_id,
-                "timestamp": datetime.utcnow(),
+                "timestamp": now,
                 "eye_aspect_ratio": event_data.get("ear"),
                 "blink_rate": event_data.get("blink_rate"),
-                "drowsiness_level": event_data.get("status", "ALERT"),
+                "drowsiness_level": status,
                 "consecutive_closed": event_data.get("consecutive_closed", 0),
+                "is_transition": is_transition,
             }
             self._db.drowsiness_events.insert_one(doc)
+            self._last_drowsiness_status = status
+            self._last_drowsiness_save = now
         except Exception as exc:
             logger.warning("Failed to log drowsiness event to MongoDB: %s", exc)
 
