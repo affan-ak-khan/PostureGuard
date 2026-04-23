@@ -6,7 +6,7 @@
   <title>PostureGuard — AI Posture &amp; Drowsiness Monitor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <style>
     /* ── Reset & Base ──────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,16 +27,77 @@
       --muted:    rgba(200,215,255,0.5);
       --grad:     linear-gradient(135deg, #4facfe 0%, #7c6eff 100%);
       --grad2:    linear-gradient(135deg, #060d18 0%, #0d0921 50%, #060d18 100%);
+      --spot:     radial-gradient(circle, rgba(79,172,254,0.24) 0%, transparent 65%);
+    }
+
+    body[data-scene="aurora"] {
+      --bg: #050b14;
+      --bg2: #0b1321;
+      --bg3: #101a2e;
+      --blue: #36b7ff;
+      --violet: #4f8cff;
+      --cyan: #22e3c4;
+      --grad: linear-gradient(130deg, #22e3c4 0%, #36b7ff 58%, #4f8cff 100%);
+      --grad2: linear-gradient(130deg, #04101f 0%, #0c1b2f 45%, #0a1222 100%);
+      --spot: radial-gradient(circle, rgba(34,227,196,0.24) 0%, transparent 65%);
+    }
+
+    body[data-scene="ember"] {
+      --bg: #140b08;
+      --bg2: #21120c;
+      --bg3: #2a1710;
+      --blue: #ffb16b;
+      --violet: #ff7e54;
+      --cyan: #ffd06c;
+      --green: #9bde63;
+      --grad: linear-gradient(130deg, #ff7e54 0%, #ffb16b 45%, #ffd06c 100%);
+      --grad2: linear-gradient(130deg, #140b08 0%, #2a1710 55%, #160d09 100%);
+      --spot: radial-gradient(circle, rgba(255,177,107,0.24) 0%, transparent 65%);
+    }
+
+    body[data-scene="matrix"] {
+      --bg: #050c08;
+      --bg2: #0c1710;
+      --bg3: #122319;
+      --blue: #66ff9a;
+      --violet: #27d79a;
+      --cyan: #82ffd8;
+      --green: #5eff8a;
+      --grad: linear-gradient(130deg, #27d79a 0%, #66ff9a 55%, #82ffd8 100%);
+      --grad2: linear-gradient(130deg, #050c08 0%, #0b1a12 50%, #08120d 100%);
+      --spot: radial-gradient(circle, rgba(102,255,154,0.24) 0%, transparent 65%);
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Sora', sans-serif;
       background: var(--bg);
       color: var(--text);
       overflow-x: hidden;
       line-height: 1.6;
+    }
+
+    #particles-layer {
+      position: fixed;
+      inset: 0;
+      z-index: -18;
+      pointer-events: none;
+      opacity: 0.65;
+    }
+
+    .spotlight {
+      position: fixed;
+      width: 40vmax;
+      height: 40vmax;
+      left: -20vmax;
+      top: -20vmax;
+      border-radius: 50%;
+      z-index: -17;
+      pointer-events: none;
+      background: var(--spot);
+      filter: blur(10px);
+      transition: background .4s ease;
     }
 
     /* ── Scrollbar ─────────────────────────────────────────────────── */
@@ -140,12 +201,43 @@
       box-shadow: 0 4px 16px rgba(79,172,254,0.3);
     }
     .logo-text {
-      font-size: 18px; font-weight: 800;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px; font-weight: 700;
       letter-spacing: -0.5px;
       background: var(--grad);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+    }
+
+    .scene-switcher {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      margin-right: 10px;
+    }
+
+    .scene-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      transition: all .25s ease;
+    }
+
+    .scene-btn:hover,
+    .scene-btn.active {
+      color: var(--text);
+      background: rgba(255,255,255,0.08);
     }
 
     nav { display: flex; align-items: center; gap: 4px; }
@@ -262,9 +354,9 @@
     }
 
     .hero h1 {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: clamp(42px, 5vw, 72px);
-      font-weight: 900;
+      font-weight: 700;
       line-height: 1.08;
       letter-spacing: -2px;
       margin-bottom: 24px;
@@ -409,9 +501,9 @@
       margin-bottom: 12px;
     }
     .section-title {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: clamp(32px, 4vw, 54px);
-      font-weight: 900; letter-spacing: -1.5px;
+      font-weight: 700; letter-spacing: -1.5px;
       line-height: 1.1;
       margin-bottom: 18px;
     }
@@ -727,9 +819,9 @@
       animation: float1 10s ease-in-out infinite;
     }
     .cta-banner h2 {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: clamp(36px, 4vw, 60px);
-      font-weight: 900; letter-spacing: -1.5px; margin-bottom: 18px;
+      font-weight: 700; letter-spacing: -1.5px; margin-bottom: 18px;
     }
     .cta-banner p { font-size:18px; color:var(--muted); max-width:560px; margin:0 auto 36px; }
     .cta-icons { font-size: 48px; margin-bottom: 28px; display:flex; justify-content:center; gap:20px; }
@@ -797,6 +889,7 @@
     }
     @media (max-width: 768px) {
       nav { display: none; }
+      .scene-switcher { display: none; }
       .hamburger { display: flex; }
       header .btn-primary { display: none; }
       .section { min-height: 100vh; padding: 70px 0; }
@@ -823,6 +916,8 @@
 <!-- Fixed background layers -->
 <div class="page-bg"></div>
 <div class="grid-pattern"></div>
+<div id="particles-layer"></div>
+<div class="spotlight" id="spotlight"></div>
 
 <!-- ── HEADER ──────────────────────────────────────────────────────────── -->
 <header id="header">
@@ -839,6 +934,12 @@
       <a href="#testimonials">Testimonials</a>
       <a href="#contact">Contact</a>
     </nav>
+
+    <div class="scene-switcher" aria-label="Background scene selector">
+      <button class="scene-btn active" data-scene="aurora">Aurora</button>
+      <button class="scene-btn" data-scene="ember">Ember</button>
+      <button class="scene-btn" data-scene="matrix">Matrix</button>
+    </div>
 
     <a href="#" class="btn btn-primary" onclick="launchApp(event)">
       <span>▶</span> Get Started
@@ -1526,7 +1627,130 @@
   .eye-r { animation-delay: .15s; }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tsparticles@3.5.0/tsparticles.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanilla-tilt@1.8.1/dist/vanilla-tilt.min.js"></script>
+
 <script>
+  function initParticles() {
+    if (!window.tsParticles) return;
+    window.tsParticles.load({
+      id: 'particles-layer',
+      options: {
+        background: { color: { value: 'transparent' } },
+        fpsLimit: 60,
+        particles: {
+          color: { value: ['#36b7ff', '#22e3c4', '#4f8cff'] },
+          links: {
+            color: '#36b7ff',
+            distance: 130,
+            enable: true,
+            opacity: 0.14,
+            width: 1
+          },
+          move: {
+            enable: true,
+            speed: 1.1,
+            direction: 'none',
+            outModes: { default: 'bounce' }
+          },
+          number: {
+            density: { enable: true, area: 900 },
+            value: 36
+          },
+          opacity: { value: 0.34 },
+          shape: { type: 'circle' },
+          size: { value: { min: 1, max: 3 } }
+        },
+        interactivity: {
+          events: {
+            onHover: { enable: true, mode: 'grab' },
+            resize: true
+          },
+          modes: {
+            grab: { distance: 180, links: { opacity: 0.28 } }
+          }
+        },
+        detectRetina: true
+      }
+    });
+  }
+
+  function initSceneChanger() {
+    const buttons = document.querySelectorAll('.scene-btn');
+    const saved = localStorage.getItem('pg-scene') || 'aurora';
+
+    function applyScene(sceneName) {
+      document.body.setAttribute('data-scene', sceneName);
+      buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.scene === sceneName));
+      localStorage.setItem('pg-scene', sceneName);
+    }
+
+    applyScene(saved);
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => applyScene(btn.dataset.scene));
+    });
+  }
+
+  function initSpotlight() {
+    const spot = document.getElementById('spotlight');
+    if (!spot) return;
+    window.addEventListener('pointermove', (e) => {
+      const x = e.clientX - spot.offsetWidth / 2;
+      const y = e.clientY - spot.offsetHeight / 2;
+      spot.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }, { passive: true });
+  }
+
+  function initProMotion() {
+    if (!window.gsap) return;
+    if (window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
+
+    gsap.from('.hero-badge, .hero h1, .hero-desc, .hero-actions, .hero-stats', {
+      y: 24,
+      opacity: 0,
+      duration: 0.9,
+      stagger: 0.08,
+      ease: 'power3.out'
+    });
+
+    gsap.from('.posture-viz', {
+      x: 40,
+      opacity: 0,
+      duration: 1.1,
+      ease: 'power3.out',
+      delay: 0.15
+    });
+
+    document.querySelectorAll('.feature-item, .step-card, .testi-card, .testi-stats-card').forEach((card) => {
+      gsap.from(card, {
+        y: 26,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: card,
+          start: 'top 86%'
+        }
+      });
+    });
+
+    if (window.VanillaTilt) {
+      window.VanillaTilt.init(document.querySelectorAll('.posture-viz, .ui-mockup, .testi-card'), {
+        max: 5,
+        speed: 350,
+        glare: true,
+        'max-glare': 0.15
+      });
+    }
+  }
+
+  initParticles();
+  initSceneChanger();
+  initSpotlight();
+  initProMotion();
+
   /* ── Header scroll effect ── */
   const header = document.getElementById('header');
   const scrollTopBtn = document.getElementById('scroll-top');
