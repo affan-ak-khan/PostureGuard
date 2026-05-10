@@ -103,6 +103,32 @@ class AlertSystem:
             self._snooze_voice("drowsiness")
         self._record("drowsiness", level, body)
 
+    def trigger_shoulder_alert(self, severity=GENTLE, tilt=0.0) -> None:
+        notify_blocked = self._is_snoozed("shoulder")
+        voice_blocked  = self._is_voice_snoozed("shoulder")
+        if notify_blocked and voice_blocked:
+            return
+        msgs = {
+            GENTLE: (
+                "Shoulder Alignment",
+                f"Shoulder tilt detected ({tilt:.0f}°). Please level your shoulders.",
+                "Your shoulder posture is not correct.",
+            ),
+            SEVERE: (
+                "Shoulder Misalignment",
+                f"Severe shoulder tilt ({tilt:.0f}°). Please correct your posture.",
+                "Your shoulder posture is not correct.",
+            ),
+        }
+        title, body, speech = msgs.get(severity, msgs[GENTLE])
+        if not notify_blocked:
+            self._notify(title, body)
+            self.snooze_alert("shoulder")
+        if not voice_blocked:
+            self._speak(speech)
+            self._snooze_voice("shoulder")
+        self._record("shoulder", severity, body)
+
     def snooze_alert(self, alert_type: str, duration: Optional[int] = None) -> None:
         dur = duration if duration is not None else self.snooze_duration
         self._snooze_until[alert_type] = time.time() + dur

@@ -13,7 +13,9 @@
         "slouch_threshold": 155,
         "forward_head_threshold": 130,
         "neck_strain_threshold": 100,
-        "baseline_neck_angle": 165
+        "baseline_neck_angle": 165,
+        "shoulder_tilt_warning": 8,
+        "shoulder_tilt_severe": 15
     },
     "eye_monitor": {
         "ear_threshold": 0.25,

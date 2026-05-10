@@ -241,6 +241,9 @@ class MainWindow(QMainWindow):
         self.config       = config
         self.data_manager = data_manager
         self.theme        = data_manager.get_settings().get("theme", "dark")
+        p = config.get("posture", {})
+        self._shoulder_tilt_warning = float(p.get("shoulder_tilt_warning", 8.0))
+        self._shoulder_tilt_severe = float(p.get("shoulder_tilt_severe", 15.0))
         self._session_id  = None
         self._running     = False
         self._last_posture_data: dict = {}
@@ -664,6 +667,7 @@ class MainWindow(QMainWindow):
         self._last_posture_data = data
         state  = data.get("status", "UNKNOWN")
         angle  = data.get("neck_angle") or 0.0
+        tilt   = data.get("shoulder_alignment")
         colour = get_status_colour(state)
         self._posture_badge.set_status(state.replace("_", " "), colour)
         self._neck_val_lbl.setText(f"{angle:.1f} deg")
@@ -676,6 +680,15 @@ class MainWindow(QMainWindow):
         if state in _sev:
             self.alert_system.trigger_posture_alert(_sev[state], angle)
             self._add_alert_log(f"Posture: {state.replace('_',' ')} ({angle:.0f} deg)")
+        if tilt is not None:
+            sev = None
+            if tilt >= self._shoulder_tilt_severe:
+                sev = "SEVERE"
+            elif tilt >= self._shoulder_tilt_warning:
+                sev = "GENTLE"
+            if sev:
+                self.alert_system.trigger_shoulder_alert(sev, tilt)
+                self._add_alert_log(f"Shoulder tilt: {tilt:.0f} deg")
 
     @pyqtSlot(dict)
     def _on_drowsiness(self, data: dict):

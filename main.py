@@ -61,6 +61,8 @@ def load_config(config_path: Path) -> dict:
             "slouch_threshold": 35,
             "forward_head_threshold": 30,
             "baseline_neck_angle": 60,
+            "shoulder_tilt_warning": 8,
+            "shoulder_tilt_severe": 15,
         },
         "eye_monitor": {
             "ear_threshold": 0.25,
