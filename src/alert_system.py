@@ -14,6 +14,12 @@ from typing import Optional
 logger = logging.getLogger("PostureGuard.alerts")
 
 try:
+    import winsound
+    _WINSOUND = True
+except ImportError:
+    _WINSOUND = False
+
+try:
     from plyer import notification as _notify
     _PLYER = True
 except ImportError:
@@ -45,6 +51,7 @@ class AlertSystem:
         self._history: list           = []
         self._tts_lock                = threading.Lock()
         self._mongodb = None  # Optional MongoDBManager for cloud logging
+        self._sounds_dir = Path(__file__).resolve().parent.parent / "assets" / "sounds"
 
     def set_mongodb(self, mongodb_manager) -> None:
         """Attach a MongoDBManager to log alerts to the cloud."""
@@ -73,7 +80,7 @@ class AlertSystem:
         }
         title, body, speech = msgs.get(severity, msgs[GENTLE])
         self._notify(title, body)
-        self._speak(speech)
+        self._play_and_speak("posture_alert.wav", speech)
         self._record("posture", severity, body)
         self.snooze_alert("posture")
 
@@ -99,7 +106,7 @@ class AlertSystem:
             self._notify(title, body)
             self.snooze_alert("drowsiness")
         if not voice_blocked:
-            self._speak(speech)
+            self._play_and_speak("drowsiness_alert.wav", speech)
             self._snooze_voice("drowsiness")
         self._record("drowsiness", level, body)
 
@@ -125,7 +132,7 @@ class AlertSystem:
             self._notify(title, body)
             self.snooze_alert("shoulder")
         if not voice_blocked:
-            self._speak(speech)
+            self._play_and_speak("posture_alert.wav", speech)
             self._snooze_voice("shoulder")
         self._record("shoulder", severity, body)
 
@@ -158,12 +165,49 @@ class AlertSystem:
         else:
             logger.info("ALERT — %s: %s", title, message)
 
-    def _speak(self, text: str) -> None:
-        """Speak text using Windows built-in SAPI via PowerShell (no extra packages)."""
+    def _play_sound(self, filename: str) -> None:
+        if not self.sound_enabled:
+            return
+        sound_path = self._sounds_dir / filename
+        if not sound_path.exists():
+            logger.warning("Alert sound missing: %s", sound_path)
+            return
+
+        def _run():
+            try:
+                if _WINSOUND:
+                    winsound.PlaySound(str(sound_path), winsound.SND_FILENAME)
+                else:
+                    logger.info("Alert sound requested but winsound is unavailable: %s", sound_path)
+            except Exception as e:
+                logger.warning("Sound playback failed: %s", e)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _play_and_speak(self, sound_file: str, text: str) -> None:
         if not self.sound_enabled:
             logger.info("TTS (muted): %s", text)
             return
 
+        def _run():
+            with self._tts_lock:
+                try:
+                    sound_path = self._sounds_dir / sound_file
+                    if sound_path.exists() and _WINSOUND:
+                        winsound.PlaySound(str(sound_path), winsound.SND_FILENAME)
+                    elif not sound_path.exists():
+                        logger.warning("Alert sound missing: %s", sound_path)
+                    self._speak_sync(text)
+                except Exception as e:
+                    logger.warning("Alert playback failed: %s", e)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _speak(self, text: str) -> None:
+        self._speak_sync(text)
+
+    def _speak_sync(self, text: str) -> None:
+        """Speak text using Windows built-in SAPI via PowerShell (no extra packages)."""
         vol_percent = self.volume   # 0-100
         safe = text.replace("'", "").replace('"', '')
 
@@ -175,17 +219,13 @@ class AlertSystem:
             f"$s.Speak('{safe}')"
         )
 
-        def _run():
-            with self._tts_lock:
-                try:
-                    subprocess.run(
-                        ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
-                        capture_output=True, timeout=15,
-                    )
-                except Exception as e:
-                    logger.warning("TTS error: %s", e)
-
-        threading.Thread(target=_run, daemon=True).start()
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
+                capture_output=True, timeout=15,
+            )
+        except Exception as e:
+            logger.warning("TTS error: %s", e)
 
     def _record(self, t: str, level: str, msg: str) -> None:
         self._history.append({"type": t, "level": level, "message": msg, "timestamp": time.time()})
