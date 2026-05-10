@@ -35,7 +35,7 @@ from src.posture_detector import PostureDetector
 from src.eye_monitor      import EyeMonitor
 from src.alert_system     import AlertSystem
 from src.session_tracker  import SessionTracker
-from src.ui.styles        import get_stylesheet, get_status_colour
+from src.ui.styles        import get_stylesheet, get_status_colour, get_theme_palette
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -93,7 +93,12 @@ class ScoreRing(QWidget):
         super().__init__(parent)
         self._score   = 0
         self._colour  = ACCENT
+        self._theme_palette = get_theme_palette("dark")
         self.setFixedSize(88, 88)
+
+    def set_theme(self, theme: str):
+        self._theme_palette = get_theme_palette(theme)
+        self.update()
 
     def set_score(self, score: int):
         self._score  = max(0, min(100, score))
@@ -111,7 +116,7 @@ class ScoreRing(QWidget):
         margin = 10
         rect   = QRectF(margin, margin, w - 2*margin, h - 2*margin)
         # background ring
-        pen = QPen(QColor(BORDER), 12, Qt.SolidLine, Qt.RoundCap)
+        pen = QPen(QColor(self._theme_palette["border"]), 12, Qt.SolidLine, Qt.RoundCap)
         p.setPen(pen)
         p.drawArc(rect, 0, 360 * 16)
         # score arc
@@ -121,7 +126,7 @@ class ScoreRing(QWidget):
         span = int(self._score / 100 * 360 * 16)
         p.drawArc(rect, 90 * 16, -span)
         # centre text
-        p.setPen(QColor(TEXT))
+        p.setPen(QColor(self._theme_palette["text"]))
         p.setFont(QFont("Segoe UI", 12, QFont.Bold))
         p.drawText(QRectF(0, 0, w, h), Qt.AlignCenter, f"{self._score}%")
 
@@ -136,8 +141,13 @@ class NeckChart(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._data: deque = deque(maxlen=self.MAX_POINTS)
+        self._theme_palette = get_theme_palette("dark")
         self.setMinimumHeight(100)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def set_theme(self, theme: str):
+        self._theme_palette = get_theme_palette(theme)
+        self.update()
 
     def push(self, angle: float):
         self._data.append(angle)
@@ -149,11 +159,11 @@ class NeckChart(QWidget):
         w, h = self.width(), self.height()
 
         # background
-        p.fillRect(0, 0, w, h, QColor(BG3))
+        p.fillRect(0, 0, w, h, QColor(self._theme_palette["bg3"]))
 
         points = list(self._data)
         if len(points) < 2:
-            p.setPen(QColor(MUTED))
+            p.setPen(QColor(self._theme_palette["muted"]))
             p.setFont(QFont("Segoe UI", 9))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "Waiting for data...")
             return
@@ -209,25 +219,36 @@ class MetricCard(QFrame):
                  accent: str = ACCENT, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(44)
-        self.setStyleSheet(
-            f"QFrame {{ background: {BG2}; border: 1px solid {BORDER};"
-            f" border-left: 3px solid {accent}; border-radius: 8px; }}"
-        )
+        self._accent = accent
+        self._theme_palette = get_theme_palette("dark")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(8, 4, 8, 4)
         lay.setSpacing(0)
         self._lbl = QLabel(label.upper())
-        self._lbl.setStyleSheet(
-            f"color:{MUTED}; font-size:9px; font-weight:700; letter-spacing:1px;"
-            f" border:none; background:transparent;"
-        )
+        self._lbl.setStyleSheet("font-size:9px; font-weight:700; letter-spacing:1px; border:none; background:transparent;")
         self._val = QLabel(value)
-        self._val.setStyleSheet(
-            f"color:{accent}; font-size:15px; font-weight:800;"
-            f" border:none; background:transparent;"
-        )
+        self._val.setStyleSheet("font-size:15px; font-weight:800; border:none; background:transparent;")
         lay.addWidget(self._lbl)
         lay.addWidget(self._val)
+        self._apply_theme("dark")
+
+    def _apply_theme(self, theme: str):
+        self._theme_palette = get_theme_palette(theme)
+        self.setStyleSheet(
+            f"QFrame {{ background: {self._theme_palette['card']}; border: 1px solid {self._theme_palette['border']};"
+            f" border-left: 3px solid {self._accent}; border-radius: 8px; }}"
+        )
+        self._lbl.setStyleSheet(
+            f"color:{self._theme_palette['muted']}; font-size:9px; font-weight:700; letter-spacing:1px;"
+            f" border:none; background:transparent;"
+        )
+        self._val.setStyleSheet(
+            f"color:{self._accent}; font-size:15px; font-weight:800;"
+            f" border:none; background:transparent;"
+        )
+
+    def set_theme(self, theme: str):
+        self._apply_theme(theme)
 
     def set_value(self, v: str):
         self._val.setText(str(v))
@@ -590,6 +611,87 @@ class MainWindow(QMainWindow):
 
     def _apply_theme(self):
         self.setStyleSheet(get_stylesheet(self.theme))
+        self._sync_theme_styles()
+
+    def _sync_theme_styles(self):
+        palette = get_theme_palette(self.theme)
+        self._theme_palette = palette
+        self.centralWidget().setStyleSheet(f"background:{palette['bg']};")
+        self.menuBar().setStyleSheet(
+            f"QMenuBar {{ background: {palette['bg2']}; border-bottom: 1px solid {palette['border']}; }}"
+            f"QMenuBar::item {{ color: {palette['muted']}; }}"
+            f"QMenuBar::item:selected {{ background: {palette['border2']}; color: {palette['text']}; }}"
+            f"QMenu {{ background: {palette['bg2']}; border: 1px solid {palette['border']}; }}"
+            f"QMenu::item {{ color: {palette['text']}; }}"
+        )
+        self.camera_label.setStyleSheet(
+            f"background:{palette['surface']}; border:1px solid {palette['border']}; border-radius:8px;"
+            f" color:{palette['muted']}; font-size:13px;"
+        )
+        self._header_status.setStyleSheet(
+            f"color:{palette['muted']}; font-size:12px; font-weight:600;"
+            f" background:{palette['border2']}; border:1px solid {palette['border']};"
+            f" border-radius:10px; padding:4px 14px;"
+        )
+        self.status_bar.setStyleSheet(
+            f"background:{palette['bg2']}; border-top:1px solid {palette['border']}; color:{palette['muted']};"
+        )
+        self._alert_list.setStyleSheet(
+            f"QListWidget{{background:{palette['surface']};border:1px solid {palette['border']};"
+            f"border-radius:8px;padding:4px;font-size:11px;color:{palette['text']};}}"
+            f"QListWidget::item{{padding:3px 6px;border-radius:4px;}}"
+            f"QListWidget::item:hover{{background:{palette['bg2']};}}"
+        )
+        if self.theme == "light":
+            self.start_btn.setStyleSheet(
+                f"QPushButton#startButton {{ background: transparent; color: {palette['green']};"
+                f" border: 2px solid {palette['green']}; border-radius: 12px; padding: 8px 18px;"
+                f" font-size: 13px; font-weight: 800; }}"
+                f"QPushButton#startButton:hover {{ background: {palette['green']}; color: #ffffff; }}"
+                f"QPushButton#startButton:pressed {{ background: {palette['green']}; color: #ffffff; }}"
+                f"QPushButton#startButton:disabled {{ background: transparent; color: {palette['muted']}; border-color: {palette['border']}; }}"
+            )
+            self.stop_btn.setStyleSheet(
+                f"QPushButton#stopButton {{ background: transparent; color: {palette['red']};"
+                f" border: 2px solid {palette['red']}; border-radius: 12px; padding: 8px 18px;"
+                f" font-size: 13px; font-weight: 800; }}"
+                f"QPushButton#stopButton:hover {{ background: {palette['red']}; color: #ffffff; }}"
+                f"QPushButton#stopButton:pressed {{ background: {palette['red']}; color: #ffffff; }}"
+                f"QPushButton#stopButton:disabled {{ background: transparent; color: {palette['muted']}; border-color: {palette['border']}; }}"
+            )
+        else:
+            self.start_btn.setStyleSheet(
+                f"QPushButton#startButton {{"
+                f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {palette['green']}, stop:1 {palette['accent']});"
+                f"color: #ffffff; border: 1px solid {palette['green']};"
+                f"border-radius: 12px; padding: 8px 18px; font-size: 13px; font-weight: 800; }}"
+                f"QPushButton#startButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {palette['accent']}, stop:1 {palette['accent2']});"
+                f"border-color: {palette['accent2']}; }}"
+                f"QPushButton#startButton:pressed {{ background: {palette['green']}; }}"
+                f"QPushButton#startButton:disabled {{ background: {palette['border2']}; color: {palette['muted']}; border-color: {palette['border']}; }}"
+            )
+            self.stop_btn.setStyleSheet(
+                f"QPushButton#stopButton {{"
+                f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {palette['red']}, stop:1 #ff7b72);"
+                f"color: #ffffff; border: 1px solid {palette['red']};"
+                f"border-radius: 12px; padding: 8px 18px; font-size: 13px; font-weight: 800; }}"
+                f"QPushButton#stopButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ff7b72, stop:1 {palette['red']});"
+                f"border-color: #ff7b72; }}"
+                f"QPushButton#stopButton:pressed {{ background: {palette['red']}; }}"
+                f"QPushButton#stopButton:disabled {{ background: {palette['border2']}; color: {palette['muted']}; border-color: {palette['border']}; }}"
+            )
+        self._neck_label.setStyleSheet(f"color:{palette['accent']}; font-size:28px; font-weight:800;")
+        self._card_duration.set_theme(self.theme)
+        self._card_score.set_theme(self.theme)
+        self._card_session.set_theme(self.theme)
+        self._card_sessions.set_theme(self.theme)
+        self._card_good_pct.set_theme(self.theme)
+        self._card_slouch.set_theme(self.theme)
+        self._card_d_total.set_theme(self.theme)
+        self._score_ring.set_theme(self.theme)
+        self._neck_chart.set_theme(self.theme)
+        if self._neck_chart_popup is not None:
+            self._neck_chart_popup.setStyleSheet(self.styleSheet())
 
     def _update_buttons_state(self):
         self.start_btn.setEnabled(not self._running)
@@ -796,7 +898,7 @@ class MainWindow(QMainWindow):
                 f" letter-spacing:1px; text-transform:uppercase;"
             )
             self._neck_label.setStyleSheet(
-                f"color:{ACCENT}; font-size:24px; font-weight:800;"
+                f"color:{self._theme_palette['accent']}; font-size:24px; font-weight:800;"
             )
             title_row.addWidget(title_lbl, stretch=1)
             title_row.addWidget(self._neck_label)
@@ -822,6 +924,10 @@ class MainWindow(QMainWindow):
         s = self.data_manager.get_settings()
         s["theme"] = self.theme
         self.data_manager.save_settings(s)
+        if hasattr(self, "_dashboard") and self._dashboard is not None:
+            self._dashboard.theme = self.theme
+            self._dashboard.setStyleSheet(get_stylesheet(self.theme))
+            self._dashboard._sync_theme_styles()
 
     def _show_about(self):
         QMessageBox.about(

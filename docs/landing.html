@@ -324,6 +324,175 @@
       box-sizing: border-box;
     }
 
+    .intro {
+      min-height: auto;
+      padding: 118px 0 22px;
+      position: relative;
+    }
+
+    .intro-shell {
+      position: relative;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow: 0 22px 70px rgba(0,0,0,0.35);
+      backdrop-filter: blur(18px);
+    }
+
+    .intro-track {
+      display: flex;
+      width: 300%;
+      transform: translateX(0%);
+      transition: transform .65s cubic-bezier(.22,1,.36,1);
+    }
+
+    .intro-screen {
+      width: 33.3333%;
+      min-height: 320px;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 20px;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .intro-copy { max-width: 560px; }
+
+    .intro-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(79,172,254,0.10);
+      border: 1px solid rgba(79,172,254,0.25);
+      border-radius: 999px;
+      padding: 6px 14px;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .intro-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+      font-weight: 800;
+      letter-spacing: -1.4px;
+      margin-bottom: 14px;
+    }
+
+    .intro-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.8;
+      margin-bottom: 18px;
+      max-width: 520px;
+    }
+
+    .intro-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .intro-chip {
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: rgba(230,237,243,0.88);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .intro-nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .intro-art {
+      min-height: 280px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(79,172,254,0.12), rgba(124,110,255,0.12));
+      border: 1px solid rgba(255,255,255,0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .intro-art::before,
+    .intro-art::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(6px);
+      animation: float1 8s ease-in-out infinite;
+    }
+
+    .intro-art::before {
+      width: 180px; height: 180px; right: -30px; top: -18px;
+      background: radial-gradient(circle, rgba(79,172,254,0.28), transparent 70%);
+    }
+
+    .intro-art::after {
+      width: 220px; height: 220px; left: -30px; bottom: -28px;
+      background: radial-gradient(circle, rgba(124,110,255,0.25), transparent 70%);
+      animation-delay: -3s;
+    }
+
+    .intro-stage {
+      position: absolute;
+      inset: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      background: rgba(6,9,15,0.35);
+      border: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .intro-stage svg {
+      width: 72%;
+      max-width: 280px;
+      opacity: .95;
+      animation: introFloat 5s ease-in-out infinite;
+    }
+
+    @keyframes introFloat {
+      0%,100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-10px) scale(1.01); }
+    }
+
+    .intro-dots {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 18px 0 24px;
+    }
+
+    .intro-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 0;
+      background: rgba(255,255,255,0.18);
+      cursor: pointer;
+      transition: transform .2s, background .2s, width .2s;
+    }
+
+    .intro-dot.active {
+      width: 34px;
+      border-radius: 999px;
+      background: var(--grad);
+    }
+
+    .intro-dot:hover { transform: scale(1.08); }
+
     .hero-inner {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -959,6 +1128,103 @@
     <a href="#" class="btn btn-primary" onclick="launchApp(event); closeMobileNav();">▶ Get Started</a>
   </div>
 </header>
+
+<!-- ── INTRO FLOW ─────────────────────────────────────────────────────── -->
+<section class="intro" aria-label="PostureGuard guided intro">
+  <div class="container">
+    <div class="intro-shell">
+      <div class="intro-track" id="intro-track">
+        <article class="intro-screen">
+          <div class="intro-copy">
+            <div class="intro-kicker">Screen 1 · Welcome</div>
+            <div class="intro-title">A cleaner start before the main monitor opens.</div>
+            <p class="intro-desc">PostureGuard begins with a guided introduction so the first impression feels polished, animated, and easy to follow.</p>
+            <div class="intro-chip-row">
+              <span class="intro-chip">Animated entry</span>
+              <span class="intro-chip">3-step flow</span>
+              <span class="intro-chip">Theme-ready UI</span>
+            </div>
+            <div class="intro-nav">
+              <a href="#" class="btn btn-primary" onclick="goIntro(1); return false;">Continue</a>
+            </div>
+          </div>
+          <div class="intro-art">
+            <div class="intro-stage">
+              <svg viewBox="0 0 300 220" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="150" cy="58" r="30" stroke="rgba(230,237,243,0.7)" stroke-width="8"/>
+                <path d="M150 88V150" stroke="#4facfe" stroke-width="10" stroke-linecap="round"/>
+                <path d="M150 104L110 130" stroke="#79c0ff" stroke-width="10" stroke-linecap="round"/>
+                <path d="M150 104L192 128" stroke="#79c0ff" stroke-width="10" stroke-linecap="round"/>
+                <path d="M150 150L120 208" stroke="#3fb950" stroke-width="10" stroke-linecap="round"/>
+                <path d="M150 150L182 208" stroke="#3fb950" stroke-width="10" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </article>
+        <article class="intro-screen">
+          <div class="intro-copy">
+            <div class="intro-kicker">Screen 2 · Splash</div>
+            <div class="intro-title">See posture and alertness turn into live insight.</div>
+            <p class="intro-desc">This screen splashes into the core value of the app: detecting slouching, forward head posture, and drowsiness before they become a problem.</p>
+            <div class="intro-chip-row">
+              <span class="intro-chip">Neck angle</span>
+              <span class="intro-chip">Shoulder tilt</span>
+              <span class="intro-chip">EAR tracking</span>
+            </div>
+            <div class="intro-nav">
+              <a href="#" class="btn btn-primary" onclick="goIntro(2); return false;">Next</a>
+            </div>
+          </div>
+          <div class="intro-art">
+            <div class="intro-stage">
+              <svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="28" y="36" width="264" height="148" rx="18" stroke="rgba(230,237,243,0.2)" stroke-width="4"/>
+                <path d="M70 144H250" stroke="#f85149" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+                <path d="M70 120H220" stroke="#d29922" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+                <path d="M70 96H170" stroke="#3fb950" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+                <circle cx="92" cy="96" r="12" fill="#4facfe"/>
+                <circle cx="92" cy="120" r="12" fill="#79c0ff"/>
+                <circle cx="92" cy="144" r="12" fill="#7c6eff"/>
+              </svg>
+            </div>
+          </div>
+        </article>
+        <article class="intro-screen">
+          <div class="intro-copy">
+            <div class="intro-kicker">Screen 3 · Focus</div>
+            <div class="intro-title">Charts, alerts, and the main dashboard in one place.</div>
+            <p class="intro-desc">The dashboard keeps the live story visible with charts, session cards, and alert summaries while you work.</p>
+            <div class="intro-chip-row">
+              <span class="intro-chip">Charts</span>
+              <span class="intro-chip">Analytics</span>
+              <span class="intro-chip">Session history</span>
+            </div>
+            <div class="intro-nav">
+              <a href="#" class="btn btn-primary" onclick="launchApp(event); return false;">▶ Get Started</a>
+            </div>
+          </div>
+          <div class="intro-art">
+            <div class="intro-stage">
+              <svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="30" y="44" width="260" height="132" rx="18" stroke="rgba(230,237,243,0.18)" stroke-width="4"/>
+                <rect x="56" y="136" width="28" height="28" rx="8" fill="#4facfe"/>
+                <rect x="96" y="112" width="28" height="52" rx="8" fill="#3fb950"/>
+                <rect x="136" y="90" width="28" height="74" rx="8" fill="#d29922"/>
+                <rect x="176" y="70" width="28" height="94" rx="8" fill="#f85149"/>
+                <rect x="216" y="52" width="28" height="112" rx="8" fill="#79c0ff"/>
+              </svg>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div class="intro-dots" aria-label="Intro progress">
+        <button class="intro-dot active" data-step="0" aria-label="Screen 1"></button>
+        <button class="intro-dot" data-step="1" aria-label="Screen 2"></button>
+        <button class="intro-dot" data-step="2" aria-label="Screen 3"></button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ── HERO ────────────────────────────────────────────────────────────── -->
 <section class="hero">
@@ -1693,6 +1959,27 @@
     });
   }
 
+  function initIntroFlow() {
+    const track = document.getElementById('intro-track');
+    const dots = document.querySelectorAll('.intro-dot');
+    if (!track || !dots.length) return;
+
+    const state = { step: 0 };
+
+    function setStep(step) {
+      state.step = Math.max(0, Math.min(2, step));
+      track.style.transform = `translateX(-${state.step * 33.3333}%)`;
+      dots.forEach((dot, index) => dot.classList.toggle('active', index === state.step));
+    }
+
+    window.goIntro = setStep;
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => setStep(Number(dot.dataset.step)));
+    });
+
+    setStep(0);
+  }
+
   function initSpotlight() {
     const spot = document.getElementById('spotlight');
     if (!spot) return;
@@ -1706,6 +1993,14 @@
   function initProMotion() {
     if (!window.gsap) return;
     if (window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
+
+    gsap.from('.intro-screen', {
+      y: 28,
+      opacity: 0,
+      duration: 0.9,
+      stagger: 0.12,
+      ease: 'power3.out'
+    });
 
     gsap.from('.hero-badge, .hero h1, .hero-desc, .hero-actions, .hero-stats', {
       y: 24,
@@ -1748,6 +2043,7 @@
 
   initParticles();
   initSceneChanger();
+  initIntroFlow();
   initSpotlight();
   initProMotion();
 

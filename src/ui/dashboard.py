@@ -4,6 +4,7 @@ dashboard.py — Statistics and charts window for PostureGuard.
 
 import logging
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 from PyQt5.QtCore    import Qt, QTimer
@@ -24,7 +25,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
-from src.ui.styles import get_stylesheet, get_status_colour
+from src.ui.styles import get_stylesheet, get_status_colour, get_theme_palette
 
 logger = logging.getLogger(__name__)
 
@@ -58,26 +59,24 @@ class StatCard(QFrame):
     def __init__(self, title: str, value: str = "--",
                  colour: str = ACC, icon: str = "", parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(82)
+        self.setMinimumHeight(92)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setStyleSheet(
-            f"QFrame {{ background:{BG2}; border:1px solid {BD};"
-            f" border-radius:12px; }}"
-        )
+        self._theme_palette = get_theme_palette("dark")
+        self._colour = colour
         # colour accent bar painted via inner indicator
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(14, 10, 14, 10)
-        lay.setSpacing(4)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(5)
 
         top_row = QHBoxLayout()
-        top_row.setSpacing(6)
+        top_row.setSpacing(8)
         self._tlbl = QLabel(title.upper())
         self._tlbl.setStyleSheet(
-            f"color:{MUT}; font-size:10px; font-weight:700;"
-            f" letter-spacing:1.2px; background:transparent; border:none;")
+            f"color:{MUT}; font-size:10px; font-weight:800;"
+            f" letter-spacing:1.4px; background:transparent; border:none;")
         dot = QLabel("●")
         dot.setStyleSheet(
-            f"color:{colour}; font-size:9px; background:transparent; border:none;")
+            f"color:{colour}; font-size:11px; background:transparent; border:none;")
         top_row.addWidget(self._tlbl)
         top_row.addStretch()
         top_row.addWidget(dot)
@@ -85,18 +84,37 @@ class StatCard(QFrame):
 
         self._vlbl = QLabel(value)
         self._vlbl.setStyleSheet(
-            f"color:{colour}; font-size:26px; font-weight:800;"
+            f"color:{colour}; font-size:30px; font-weight:900;"
             f" background:transparent; border:none;")
         lay.addWidget(self._vlbl)
 
         # bottom accent line
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
-        line.setFixedHeight(2)
+        line.setFixedHeight(3)
         line.setStyleSheet(
             f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
             f"stop:0 {colour}, stop:1 transparent); border:none;")
         lay.addWidget(line)
+        self._apply_theme("dark")
+
+    def _apply_theme(self, theme: str):
+        self._theme_palette = get_theme_palette(theme)
+        self.setStyleSheet(
+            f"QFrame {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {self._theme_palette['card']}, stop:1 {self._theme_palette['bg2']});"
+            f" border:1px solid {self._theme_palette['border']}; border-radius:16px; }}"
+        )
+        self._tlbl.setStyleSheet(
+            f"color:{self._theme_palette['muted']}; font-size:10px; font-weight:800;"
+            f" letter-spacing:1.4px; background:transparent; border:none;"
+        )
+        self._vlbl.setStyleSheet(
+            f"color:{self._colour}; font-size:30px; font-weight:900;"
+            f" background:transparent; border:none;"
+        )
+
+    def set_theme(self, theme: str):
+        self._apply_theme(theme)
 
     def set_value(self, v: str):
         self._vlbl.setText(str(v))
@@ -107,11 +125,21 @@ class MplCanvas(FigureCanvas if HAS_MPL else QWidget):
         if not HAS_MPL:
             super().__init__(parent)
             return
-        self.fig = Figure(figsize=(width, height), facecolor=BG2)
-        self.fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.20)
+        self._theme_palette = get_theme_palette("dark")
+        self.fig = Figure(figsize=(width, height), facecolor=self._theme_palette["chart"])
+        self.fig.subplots_adjust(left=0.16, right=0.98, top=0.82, bottom=0.28)
         super().__init__(self.fig)
         self.setParent(parent)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    def set_theme(self, theme: str):
+        if not HAS_MPL:
+            return
+        self._theme_palette = get_theme_palette(theme)
+        self.fig.set_facecolor(self._theme_palette["chart"])
+        self.fig.subplots_adjust(left=0.16, right=0.98, top=0.82, bottom=0.28)
+        self.setStyleSheet(f"background:{self._theme_palette['chart']};")
+        self.draw_idle()
 
 
 class DashboardWindow(QMainWindow):
@@ -126,6 +154,7 @@ class DashboardWindow(QMainWindow):
         self.resize(960, 640)
         self.setStyleSheet(get_stylesheet(theme))
         self._build_ui()
+        self._sync_theme_styles()
         self._load_data()
 
     # ──────────────────────────────────────────── layout ──────────────────
@@ -136,33 +165,34 @@ class DashboardWindow(QMainWindow):
         root.setContentsMargins(12, 10, 12, 10)
         root.setSpacing(10)
 
-        # ── Header ────────────────────────────────────────────────────────
         hdr = QHBoxLayout()
         hdr.setSpacing(12)
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        title = QLabel("Dashboard")
-        title.setFont(QFont("Segoe UI", 18, QFont.Bold))
-        title.setStyleSheet(f"color:{ACC}; letter-spacing:-0.5px;")
-        subtitle = QLabel("Session history and posture analytics")
-        subtitle.setStyleSheet(f"color:{MUT}; font-size:12px;")
-        title_col.addWidget(title)
-        title_col.addWidget(subtitle)
+        self._title_label = QLabel("Dashboard")
+        self._title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        self._subtitle_label = QLabel("Session history and posture analytics")
+        title_col.addWidget(self._title_label)
+        title_col.addWidget(self._subtitle_label)
+
         self._range_combo = QComboBox()
         self._range_combo.addItems(["Last 7 days", "Last 14 days", "Last 30 days"])
         self._range_combo.setFixedWidth(150)
         self._range_combo.setFixedHeight(32)
         self._range_combo.currentIndexChanged.connect(self._on_range_changed)
+
         self._refresh_btn = QPushButton("\u27f3  Refresh")
         self._refresh_btn.setObjectName("iconButton")
         self._refresh_btn.setFixedWidth(110)
         self._refresh_btn.setFixedHeight(32)
         self._refresh_btn.clicked.connect(self._load_data)
+
         self._export_btn = QPushButton("\u2b07  Export CSV")
         self._export_btn.setObjectName("iconButton")
         self._export_btn.setFixedWidth(130)
         self._export_btn.setFixedHeight(32)
         self._export_btn.clicked.connect(self._export_csv)
+
         hdr.addLayout(title_col)
         hdr.addStretch()
         hdr.addWidget(QLabel("Range:"))
@@ -172,20 +202,17 @@ class DashboardWindow(QMainWindow):
         hdr.addWidget(self._export_btn)
         root.addLayout(hdr)
 
-        # ── Stat cards ────────────────────────────────────────────────────
         cards = QHBoxLayout()
         cards.setSpacing(8)
-        self._c_sessions = StatCard("Total Sessions",   "--", ACC)
-        self._c_score    = StatCard("Avg Posture Score","--", GRN)
-        self._c_good_pct = StatCard("Good Posture %",   "--", GRN)
-        self._c_p_alert  = StatCard("Posture Alerts",   "--", ORG)
-        self._c_d_alert  = StatCard("Drowsy Alerts",    "--", RED)
-        for c in (self._c_sessions, self._c_score, self._c_good_pct,
-                  self._c_p_alert, self._c_d_alert):
-            cards.addWidget(c)
+        self._c_sessions = StatCard("Total Sessions", "--", ACC)
+        self._c_score = StatCard("Avg Posture Score", "--", GRN)
+        self._c_good_pct = StatCard("Good Posture %", "--", GRN)
+        self._c_p_alert = StatCard("Posture Alerts", "--", ORG)
+        self._c_d_alert = StatCard("Drowsy Alerts", "--", RED)
+        for card in (self._c_sessions, self._c_score, self._c_good_pct, self._c_p_alert, self._c_d_alert):
+            cards.addWidget(card)
         root.addLayout(cards)
 
-        # ── Charts ────────────────────────────────────────────────────────
         if HAS_MPL:
             row1 = QHBoxLayout()
             row1.setSpacing(10)
@@ -226,6 +253,36 @@ class DashboardWindow(QMainWindow):
             root.addLayout(row2)
         else:
             root.addWidget(QLabel("Install matplotlib (pip install matplotlib) to see charts."))
+
+    def _sync_theme_styles(self):
+        palette = get_theme_palette(self.theme)
+        self._theme_palette = palette
+        self.centralWidget().setStyleSheet(f"background:{palette['bg']};")
+        self._range_combo.setStyleSheet(
+            f"QComboBox {{ background:{palette['bg2']}; color:{palette['text']}; border:1px solid {palette['border']};"
+            f" border-radius:12px; padding:8px 14px; font-weight:600; }}"
+            f"QComboBox:hover {{ border-color:{palette['accent']}; }}"
+            f"QComboBox QAbstractItemView {{ background:{palette['bg2']}; color:{palette['text']}; border:1px solid {palette['border']}; selection-background-color:{palette['accent']}; selection-color:#ffffff; }}"
+        )
+        self._refresh_btn.setStyleSheet(
+            f"QPushButton {{ background:{palette['bg2']}; color:{palette['text']}; border:1px solid {palette['border']};"
+            f" border-radius:12px; padding:6px 14px; font-weight:700; }}"
+            f"QPushButton:hover {{ border-color:{palette['accent']}; color:{palette['accent']}; background:{palette['border2']}; }}"
+            f"QPushButton:pressed {{ background:{palette['accent']}; color:#ffffff; }}"
+        )
+        self._export_btn.setStyleSheet(self._refresh_btn.styleSheet())
+        for card in (self._c_sessions, self._c_score, self._c_good_pct, self._c_p_alert, self._c_d_alert):
+            card.set_theme(self.theme)
+        if HAS_MPL:
+            for canvas in (self._cv_posture, self._cv_alerts, self._cv_pie, self._cv_neck):
+                canvas.set_theme(self.theme)
+        for group in self.findChildren(QGroupBox):
+            group.setStyleSheet(
+                f"QGroupBox {{ background:{palette['bg2']}; border:1px solid {palette['border']}; border-radius:14px; margin-top:10px; padding:14px 10px 10px 10px; }}"
+                f"QGroupBox::title {{ color:{palette['muted']}; font-size:11px; font-weight:800; letter-spacing:0.9px; }}"
+            )
+        self._title_label.setStyleSheet(f"color:{palette['accent']}; letter-spacing:-0.6px; font-weight:800;")
+        self._subtitle_label.setStyleSheet(f"color:{palette['muted']}; font-size:12px; font-weight:500;")
 
     # ──────────────────────────────────────────── data ────────────────────
     def _on_range_changed(self, idx: int):

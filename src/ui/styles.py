@@ -19,6 +19,52 @@ def get_status_colour(status: str) -> str:
     return STATUS_COLOURS.get(status.upper(), "#8b949e")
 
 
+THEME_PALETTES = {
+    "dark": {
+        "bg": "#0d1117",
+        "bg2": "#161b22",
+        "bg3": "#0d1117",
+        "border": "#30363d",
+        "border2": "#21262d",
+        "text": "#e6edf3",
+        "muted": "#8b949e",
+        "accent": "#58a6ff",
+        "accent2": "#79c0ff",
+        "green": "#3fb950",
+        "yellow": "#d29922",
+        "orange": "#db6d28",
+        "red": "#f85149",
+        "card": "#161b22",
+        "surface": "#0d1117",
+        "chart": "#161b22",
+        "panel": "#0d1117",
+    },
+    "light": {
+        "bg": "#f6f8fc",
+        "bg2": "#ffffff",
+        "bg3": "#f6f8fc",
+        "border": "#d0d7de",
+        "border2": "#e4e9ef",
+        "text": "#1f2328",
+        "muted": "#656d76",
+        "accent": "#0969da",
+        "accent2": "#218bff",
+        "green": "#1a7f37",
+        "yellow": "#9a6700",
+        "orange": "#bc4c00",
+        "red": "#cf222e",
+        "card": "#ffffff",
+        "surface": "#ffffff",
+        "chart": "#ffffff",
+        "panel": "#ffffff",
+    },
+}
+
+
+def get_theme_palette(theme: str = "dark") -> dict:
+    return THEME_PALETTES.get(theme if theme == "light" else "dark", THEME_PALETTES["dark"])
+
+
 # ── Dark theme stylesheet ────────────────────────────────────────────────
 DARK_THEME = """
 /* ── Global ─────────────────────────────────────────────── */

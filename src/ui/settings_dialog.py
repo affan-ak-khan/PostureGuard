@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
     QPushButton, QDialogButtonBox, QGroupBox, QSizePolicy,
 )
 
+from src.ui.styles import get_theme_palette
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,13 +22,47 @@ class SettingsDialog(QDialog):
         self.config = config
         self.data_manager = data_manager
         self._settings = data_manager.get_settings()
+        self.theme = self._settings.get("theme", getattr(parent, "theme", "dark"))
 
         self.setWindowTitle("PostureGuard — Preferences")
         self.setMinimumSize(580, 520)
         self.resize(620, 580)
 
         self._build_ui()
+        self._apply_theme()
         self._populate()
+
+    def _apply_theme(self):
+        palette = get_theme_palette(self.theme)
+        self.setStyleSheet(
+            f"QDialog {{ background:{palette['bg']}; color:{palette['text']}; }}"
+            f"QWidget {{ background: transparent; color:{palette['text']}; }}"
+            f"QLabel {{ color:{palette['text']}; background: transparent; }}"
+            f"QGroupBox {{ background:{palette['bg2']}; border:1px solid {palette['border']}; border-radius:12px; margin-top:10px; padding:14px 10px 10px 10px; font-weight:700; }}"
+            f"QGroupBox::title {{ color:{palette['muted']}; font-size:11px; font-weight:700; letter-spacing:0.8px; }}"
+            f"QTabWidget::pane {{ background:{palette['bg2']}; border:1px solid {palette['border']}; border-radius:10px; top:-1px; }}"
+            f"QTabBar::tab {{ background: transparent; color:{palette['muted']}; padding: 10px 22px; margin-right:4px; border-bottom:3px solid transparent; font-weight:600; }}"
+            f"QTabBar::tab:selected {{ color:{palette['accent']}; border-bottom-color:{palette['accent']}; }}"
+            f"QLineEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background:{palette['surface']}; color:{palette['text']}; border:1px solid {palette['border']}; border-radius:8px; padding:8px 12px; }}"
+            f"QLineEdit:focus, QTextEdit:focus, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{ border-color:{palette['accent']}; }}"
+            f"QComboBox QAbstractItemView {{ background:{palette['bg2']}; color:{palette['text']}; border:1px solid {palette['border']}; selection-background-color:{palette['accent']}; selection-color:#ffffff; }}"
+            f"QCheckBox {{ spacing:10px; color:{palette['text']}; }}"
+            f"QCheckBox::indicator {{ width:20px; height:20px; border-radius:5px; border:2px solid {palette['border']}; background:{palette['surface']}; }}"
+            f"QCheckBox::indicator:checked {{ background:{palette['accent']}; border-color:{palette['accent']}; }}"
+            f"QSlider::groove:horizontal {{ height:8px; background:{palette['border2']}; border-radius:4px; }}"
+            f"QSlider::handle:horizontal {{ background:{palette['accent']}; border:2px solid {palette['accent2']}; width:20px; height:20px; margin:-7px 0; border-radius:11px; }}"
+            f"QSlider::sub-page:horizontal {{ background:{palette['accent']}; border-radius:4px; }}"
+            f"QDialogButtonBox QPushButton {{ min-width:100px; }}"
+        )
+        self._header_widget.setStyleSheet(
+            f"background:{palette['bg2']}; border-radius:12px; padding:2px;"
+        )
+        self._title_lbl.setStyleSheet(
+            f"color:{palette['accent']}; font-size:18px; font-weight:800; background: transparent;"
+        )
+        self._desc_lbl.setStyleSheet(
+            f"color:{palette['muted']}; font-size:13px; font-weight:400; background: transparent;"
+        )
 
     # ----------------------------------------------------------------- UI ---
     def _build_ui(self):
@@ -36,23 +72,24 @@ class SettingsDialog(QDialog):
 
         # Header
         hdr = QWidget()
+        self._header_widget = hdr
         hdr.setStyleSheet(
             "background: #161b22; border-radius: 12px; padding: 2px;"
         )
         hdr_lay = QHBoxLayout(hdr)
         hdr_lay.setContentsMargins(18, 14, 18, 14)
-        title_lbl = QLabel("Preferences")
-        title_lbl.setStyleSheet(
+        self._title_lbl = QLabel("Preferences")
+        self._title_lbl.setStyleSheet(
             "color: #58a6ff; font-size: 18px; font-weight: 800; background: transparent;"
         )
-        desc_lbl = QLabel("Customise PostureGuard settings")
-        desc_lbl.setStyleSheet(
+        self._desc_lbl = QLabel("Customise PostureGuard settings")
+        self._desc_lbl.setStyleSheet(
             "color: #8b949e; font-size: 13px; font-weight: 400; background: transparent;"
         )
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        title_col.addWidget(title_lbl)
-        title_col.addWidget(desc_lbl)
+        title_col.addWidget(self._title_lbl)
+        title_col.addWidget(self._desc_lbl)
         hdr_lay.addLayout(title_col)
         root.addWidget(hdr)
 

@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import (
     QMessageBox, QWidget,
 )
 
+from src.ui.styles import get_theme_palette
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -33,6 +35,7 @@ class CalibrationDialog(QDialog):
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
         self.config = config
+        self.theme = getattr(parent, "theme", "dark")
         self._cap   = None
         self._landmarker = None
         self._frame_count = 0
@@ -45,6 +48,7 @@ class CalibrationDialog(QDialog):
         self.setModal(True)
 
         self._build_ui()
+        self._apply_theme()
         self._goto_step(0)
         self._start_camera()
 
@@ -164,6 +168,35 @@ class CalibrationDialog(QDialog):
         nav.addWidget(self._next_btn)
         nav.addWidget(self._finish_btn)
         root.addLayout(nav)
+
+    def _apply_theme(self):
+        palette = get_theme_palette(self.theme)
+        self.setStyleSheet(
+            f"QDialog {{ background:{palette['bg']}; color:{palette['text']}; }}"
+            f"QLabel {{ color:{palette['text']}; background: transparent; }}"
+            f"QGroupBox {{ background:{palette['bg2']}; border:1px solid {palette['border']}; border-radius:12px; }}"
+            f"QProgressBar {{ background:{palette['border2']}; border:1px solid {palette['border']}; border-radius:8px; text-align:center; color:{palette['text']}; }}"
+            f"QProgressBar::chunk {{ background:{palette['accent']}; border-radius:7px; }}"
+            f"QPushButton {{ background:{palette['bg2']}; color:{palette['text']}; border:1px solid {palette['border']}; border-radius:8px; font-weight:700; }}"
+            f"QPushButton:hover {{ border-color:{palette['accent']}; color:{palette['accent']}; }}"
+            f"QPushButton#startButton {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {palette['green']}, stop:1 {palette['accent']}); color:#ffffff; border:1px solid {palette['green']}; }}"
+            f"QPushButton#iconButton {{ background:{palette['bg2']}; color:{palette['muted']}; border:1px solid {palette['border']}; }}"
+        )
+        self._title_lbl.setStyleSheet(f"font-size:15px; font-weight:800; color:{palette['accent']}; letter-spacing:-0.3px; margin:2px 0;")
+        self._step_dots.setStyleSheet(f"font-size: 22px; margin-bottom: 4px; color: {palette['muted']};")
+        self._cam_label.setStyleSheet(
+            f"background:{palette['surface']}; border:1px solid {palette['border']}; border-radius:12px;"
+            f" color:{palette['muted']}; font-size:13px;"
+        )
+        self._cam_label2.setStyleSheet(
+            f"background:{palette['surface']}; border:1px solid {palette['border']}; border-radius:12px;"
+            f" color:{palette['muted']}; font-size:13px;"
+        )
+        self._baseline_pb.setStyleSheet(
+            f"QProgressBar {{ background:{palette['border2']}; border:1px solid {palette['border']}; border-radius:8px; text-align:center; color:{palette['text']}; }}"
+            f"QProgressBar::chunk {{ background:{palette['accent']}; border-radius:7px; }}"
+        )
+        self._title_lbl.setText(self._title_lbl.text())
 
     def _goto_step(self, step: int):
         self._step = step

@@ -144,23 +144,11 @@ def main() -> int:
             logger.warning("MongoDB setup error: %s — running with local DB only", exc)
             mongo_mgr = None
 
-    window_ref = []
     window_ref = []  # keep references alive
 
     def launch_qt_app():
-        """Show the PyQt5 landing window, which leads to the main window."""
-        try:
-            landing = LandingWindow()
-            landing.get_started.connect(launch_main)
-            window_ref.append(landing)
-            landing.show()
-            # Raise after one event-loop tick so content renders before coming to front
-            QTimer.singleShot(50, lambda: (landing.raise_(), landing.activateWindow()))
-            logger.info("Qt landing window shown")
-        except Exception as exc:
-            logger.critical("Failed to show landing window: %s", exc, exc_info=True)
-            QMessageBox.critical(None, "Startup Error", f"Failed to start:\n{exc}")
-            app.quit()
+        """Launch the main monitoring window directly."""
+        launch_main()
 
     def launch_main():
         """Open the main monitoring window."""
@@ -173,7 +161,6 @@ def main() -> int:
                 elif hasattr(window, 'alert_system'):
                     window.alert_system.set_mongodb(mongo_mgr)
             window_ref.append(window)  # keep reference alive
-            window_ref.append(window)
             window.show()
             logger.info("Main window launched")
         except Exception as exc:
@@ -241,7 +228,7 @@ def main() -> int:
     # ── If no HTML page, skip straight to Qt ────────────────────────────────
     if not landing_html.exists():
         logger.warning("landing.html not found, launching Qt directly")
-        launch_qt_app()
+        launch_main()
 
     # ── Poll for launch signal from browser ─────────────────────────────────
     def _check_launch():

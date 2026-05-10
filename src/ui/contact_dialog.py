@@ -14,6 +14,8 @@ from PyQt5.QtWidgets import (
     QMessageBox, QFrame,
 )
 
+from src.ui.styles import get_theme_palette
+
 RECIPIENT = "kaffan2025@gmail.com"
 
 # ── Palette ──────────────────────────────────────────────────────────────
@@ -36,59 +38,47 @@ class ContactDialog(QDialog):
         self.setMinimumWidth(500)
         self.resize(540, 430)
         self.setModal(True)
+        self.theme = getattr(parent, "theme", "dark")
         self._build_ui()
 
-    # ─────────────────────────────────────────────────────── UI ──────────
-
-    def _build_ui(self):
+    def _apply_theme(self):
+        palette = get_theme_palette(self.theme)
         self.setStyleSheet(f"""
-            QDialog {{
-                background: {BG2};
-                color: {TEXT};
-            }}
-            QLabel {{
-                color: {TEXT};
-                font-size: 13px;
-                background: transparent;
-                border: none;
-            }}
+            QDialog {{ background: {palette['bg']}; color: {palette['text']}; }}
+            QLabel {{ color: {palette['text']}; font-size: 13px; background: transparent; border: none; }}
             QLineEdit, QTextEdit {{
-                background: {BG};
-                color: {TEXT};
-                border: 1px solid {BORDER};
+                background: {palette['surface']};
+                color: {palette['text']};
+                border: 1px solid {palette['border']};
                 border-radius: 8px;
                 padding: 8px 12px;
                 font-size: 13px;
-                selection-background-color: {ACCENT};
+                selection-background-color: {palette['accent']};
             }}
-            QLineEdit:focus, QTextEdit:focus {{
-                border: 1px solid {ACCENT};
-            }}
+            QLineEdit:focus, QTextEdit:focus {{ border: 1px solid {palette['accent']}; }}
             QPushButton {{
-                background: {ACCENT};
-                color: #0d1117;
+                background: {palette['accent']};
+                color: #ffffff;
                 border: none;
                 border-radius: 8px;
                 padding: 10px 28px;
                 font-size: 13px;
                 font-weight: 700;
             }}
-            QPushButton:hover {{
-                background: #79c0ff;
-            }}
-            QPushButton:pressed {{
-                background: #4393e4;
-            }}
+            QPushButton:hover {{ background: {palette['accent2']}; }}
+            QPushButton:pressed {{ background: {palette['accent']}; }}
             QPushButton#cancelBtn {{
                 background: transparent;
-                color: {MUTED};
-                border: 1px solid {BORDER};
+                color: {palette['muted']};
+                border: 1px solid {palette['border']};
             }}
-            QPushButton#cancelBtn:hover {{
-                border-color: {ACCENT};
-                color: {TEXT};
-            }}
+            QPushButton#cancelBtn:hover {{ border-color: {palette['accent']}; color: {palette['text']}; }}
         """)
+
+    # ─────────────────────────────────────────────────────── UI ──────────
+
+    def _build_ui(self):
+        self._apply_theme()
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(30, 26, 30, 26)
